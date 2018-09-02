@@ -27,5 +27,8 @@ bin/example: src/gpio.c src/example.c
 bin/tests: src/gpio.c tests/tests.cpp
 	$(CXX) $(CXXFLAGS) $^ -lgtest -lgtest_main -lpthread -o $@
 
+test: bin/tests
+	$<
+
 clean:
 	rm -rf $(DIRECTORIES)

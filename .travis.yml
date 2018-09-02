@@ -1,0 +1,4 @@
+language: cpp
+sudo: required
+install: ci/install_googletest.sh
+script: make && make test
