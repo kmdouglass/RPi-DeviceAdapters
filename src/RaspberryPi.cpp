@@ -7,6 +7,9 @@
 
 #include "RaspberryPi.h"
 #include "ModuleInterface.h"
+#include <vector>
+
+#define PIN 4
 
 using namespace std;
 
@@ -36,7 +39,7 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName)
   // decide which device class to create based on the deviceName parameter
   if (strcmp(deviceName, g_DeviceName) == 0)
   {
-     // create the test device
+     // create the Raspberry Pi device
      return new RaspberryPi();
   }
   // ...supplied name not recognized
@@ -65,14 +68,11 @@ MODULE_API void DeleteDevice(MM::Device* pDevice)
  * Initialize() method.
  */
 RaspberryPi::RaspberryPi() :
+  pinState_ (0),
   initialized_ (false)
 {
   // call the base class method to set-up default error codes/messages
   InitializeDefaultErrorMessages();
-
-  // Description property
-  int ret = CreateProperty(MM::g_Keyword_Description, "RaspberryPi test device adapter", MM::String, true);
-  assert(ret == DEVICE_OK);
 }
 
 /**
@@ -110,8 +110,29 @@ int RaspberryPi::Initialize()
   if (initialized_)
     return DEVICE_OK;
 
+  // initialize the GPIO registers
+  // TODO Move to a method like GenerateControlledProperties
+  pioInit(&registers);
+  pinMode(&registers, PIN, OUTPUT);
+
+  // set read-only properties
+  // ------------------------
+  // name
+  int nRet = CreateStringProperty(MM::g_Keyword_Name, g_DeviceName, true);
+  if (DEVICE_OK != nRet)
+    return nRet;
+
+  // description
+  nRet = CreateStringProperty(
+           MM::g_Keyword_Description,
+           "Controls the Raspberry Pi GPIO pins",
+           true);
+  if (DEVICE_OK != nRet)
+    return nRet;
+
   // set property list
   // -----------------
+  GenerateControlledProperties();
 
   // synchronize all properties
   // --------------------------
@@ -133,4 +154,56 @@ int RaspberryPi::Shutdown()
 {
   initialized_ = false;
   return DEVICE_OK;
+}
+
+//////////////////////////////////////////////////////////////////////
+// Property Generators
+//////////////////////////////////////////////////////////////////////
+
+void RaspberryPi::GenerateControlledProperties()
+{
+  // Turn on/off the GPIO pin
+  CPropertyAction* pAct = new CPropertyAction(this, &RaspberryPi::OnPinState);
+  CreateProperty("Switch On/Off", "Off", MM::String, false, pAct);
+  std::vector<std::string> commands;
+  commands.push_back("Off");
+  commands.push_back("On");
+  SetAllowedValues("Switch On/Off", commands);
+}
+
+//////////////////////////////////////////////////////////////////////
+// Action handlers
+//////////////////////////////////////////////////////////////////////
+int RaspberryPi::OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct)
+{
+
+	if (eAct == MM::BeforeGet)
+	{
+	  // TODO
+	}
+	else if (eAct == MM::AfterSet)
+	{
+          std::string state;
+	  pProp->Get(state);
+
+	  if (state == "Off")
+	    this->SetPinState(0);
+	  else if (state == "On")
+	    this->SetPinState(1);
+	}
+
+	return DEVICE_OK;
+}
+
+//////////////////////////////////////////////////////////////////////
+// Implementation details
+//////////////////////////////////////////////////////////////////////
+
+/**
+ Sets the state of the pin (on/off).
+ */
+void RaspberryPi::SetPinState(int pinState)
+{
+  pinState_ = pinState;
+  digitalWrite(&registers, PIN, pinState);
 }
