@@ -22,6 +22,7 @@
 // Physical addresses
 #define BCM2837_PERIPHERAL_BASE   0x3F000000
 #define GPIO_BASE                 (BCM2837_PERIPHERAL_BASE + 0x200000)
+#define GPIOMEM_BASE              0
 #define SYSTIME_BASE              (BCM2837_PERIPHERAL_BASE + 0x003000)
 #define BLOCK_SIZE                (4 * 1024)
 

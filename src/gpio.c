@@ -20,8 +20,8 @@ void pioInit(gpio_registers* registers) {
   void *reg_map;
   volatile unsigned int *gpio;
 
-  if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
-    printf("Error: cannot open /dev/mem \n");
+  if ((mem_fd = open("/dev/gpiomem", O_RDWR|O_SYNC) ) < 0) {
+    printf("Error: cannot open /dev/gpiomem \n");
     exit(-1);
   }
 
@@ -31,7 +31,7 @@ void pioInit(gpio_registers* registers) {
     PROT_READ|PROT_WRITE,
     MAP_SHARED,
     mem_fd,
-    GPIO_BASE);
+    GPIOMEM_BASE);
 
   if (reg_map == MAP_FAILED) {
     printf("GPIO memory map failed: error %ld\n", (long) reg_map);
