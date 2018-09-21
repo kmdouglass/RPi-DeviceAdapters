@@ -9,6 +9,9 @@
 #define _RASPBERRYPI_H_
 
 #include "DeviceBase.h"
+extern "C" {
+  #include "gpio.h"
+}
 
 class RaspberryPi : public CGenericBase<RaspberryPi>
 {
@@ -19,11 +22,20 @@ public:
   // MMDevice API
   int Initialize();
   int Shutdown();
-
   void GetName(char* name) const;
   bool Busy() {return false;};
 
+  // Settable properties
+  int OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct);
+
 private:
+  gpio_registers registers;
+  int pinState_;
+
+  void GenerateControlledProperties();
+  void SetPinState(int pinState);
+
+  // MM API
   bool initialized_;
 };
 
