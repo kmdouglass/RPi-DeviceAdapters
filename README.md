@@ -9,5 +9,5 @@ A Micro-Manager device adapter for the Raspberry Pi GPIO pins
 Under development...
 
 - [X] GPIO register drivers
-- [ ] Device adapter
+- [X] Device adapter
 - [ ] Automated builds against Micro-Manager 2.0
