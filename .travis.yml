@@ -1,4 +1,8 @@
 language: cpp
 sudo: required
-install: ci/install_googletest.sh
-script: make && make test
+install:
+  - echo "Testing CI system..."
+  - (cd ci/build; bats tests/*)
+  - ci/install_googletest.sh
+script:
+  - make && make test

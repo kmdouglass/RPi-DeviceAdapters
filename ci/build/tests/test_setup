@@ -1,0 +1,25 @@
+# Copyright (C) 2018 Kyle M. Douglass
+# kyle.m.douglass@gmail.com
+#
+# Tests for the Micro-Manager build script "setup."
+#
+
+@test "The build exits if an incorrect configure flag was passed." {
+    run ./setup false nonsense
+
+    [ "$status" -eq 1 ]
+}
+
+@test "The build exits if an incorrect patch flag was passed." {
+    run ./setup nonsense
+
+    [ "$status" -eq 1 ]
+}
+
+@test "The build exits if the patching fails." {
+    # Patching fails because the patches don't exist in this folder.
+    run ./setup false true
+
+    [ "$status" -eq 1 ]
+}
+
