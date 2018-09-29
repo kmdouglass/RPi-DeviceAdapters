@@ -2,6 +2,7 @@ language: cpp
 sudo: required
 install:
   - echo "Testing CI system..."
+  - (cd ci; bats tests/*)
   - (cd ci/build; bats tests/*)
   - ci/install_googletest.sh
 script:

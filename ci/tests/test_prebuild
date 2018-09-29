@@ -1,0 +1,11 @@
+# Kyle M. Douglass, 2018
+# kyle.m.douglass@gmail.com
+#
+# Tests for the Micro-Manager build script "setup."
+#
+
+@test "prebuild.sh fails if no directory is passed" {
+    run ./prebuild.sh
+
+    [ "$status" -eq 1 ]
+}
