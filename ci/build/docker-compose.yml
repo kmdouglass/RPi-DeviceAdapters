@@ -1,0 +1,10 @@
+---
+version: '3'
+services:
+  rpi-build:
+    build: .
+    image: kmdouglass/rpi-micromanager:build-20181006
+    volumes:
+      - /opt/rpi-micromanager:/micro-manager/src
+    # first true is for configure, second is for patch
+    command: /micro-manager/setup true

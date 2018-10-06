@@ -1,0 +1,11 @@
+# Copyright (C) 2018 Kyle M. Douglass
+# kyle.m.douglass@gmail.com
+#
+# Tests for the Micro-Manager build script "setup."
+#
+
+@test "The build exits if an incorrect configure flag was passed." {
+    run ./setup nonsense
+
+    [ "$status" -eq 1 ]
+}

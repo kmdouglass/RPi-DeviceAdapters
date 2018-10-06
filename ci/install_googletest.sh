@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# Kyle M. Douglass, 2018
+# kyle.m.douglass@gmail.com
+#
 
 set -euo pipefail
 

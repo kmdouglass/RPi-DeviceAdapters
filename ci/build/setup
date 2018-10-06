@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Kyle M. Douglass, 2018
+# kyle.m.douglass@gmail.com
+#
+# Builds Micro-Manager.
+#
+# Usage: ./setup CONFIGURE
+#
+# If CONFIGURE=true, the build system is remade and the configure
+# script is rerun before running 'make' and 'make install'. If
+# CONFIGURE=false, only 'make' and 'make install' are run.
+#
+# This script is run inside the build container.
+#
+
+set -euo pipefail
+
+configure=${1:-true}
+cd micro-manager
+
+# Configure and compile
+#---------------------------------------------------------------------
+if [ ${configure} = true ]; then
+    # Remake the entire build system, then compile from scratch.
+    ./autogen.sh
+    PYTHON="/usr/bin/python3" ./configure \
+        --prefix="/micro-manager/src/build" \
+	--with-python="/usr/include/python3.5" \
+	--with-boost-libdir="/usr/lib/arm-linux-gnueabihf" \
+	--with-boost="/usr/include/boost" \
+	--disable-java-app \
+	--disable-install-dependency-jars \
+	--with-java="no"
+elif [ ${configure} = false ]; then
+    echo "CONFIGURE flag set to false. Skipping config script..."
+else
+    cat <<__END__
+${configure} : Unrecognized argument.
+Pass true to run the full build process.
+Pass false to run only make and make install.
+__END__
+    
+    exit 1
+fi
+
+make
+make install
+chmod -R a+w /micro-manager/src/build
