@@ -48,7 +48,7 @@ following structure within the `/opt/rpi-micromanager` directory:
 There is a convenience script called `prebuild.sh` in the `ci` folder
 that may be used to automatically checkout the Micro-Manager source
 code and dependencies. It will also merge this project's code into the
-Micro-Manager source code directoyry. To use it, pass the installation
+Micro-Manager source code directory. To use it, pass the installation
 directory on the command line when calling the script:
 
 ```
@@ -86,10 +86,10 @@ $ docker tag kmdouglass/rpi-micromanager:build-YYYYMMDD TARGET_IMAGE
 $ docker push TARGET_IMAGE
 ```
 
-where `YYYYMMDD` is the year-month-day that the container is
-definition is created on. Note that naming conventions for
-`TARGET_IMAGE` follow the format `USER_NAME/IMAGE_NAME:TAG` where
-`USER_NAME` is your Dockerhub username and `:TAG` is optional.
+where `YYYYMMDD` is the year-month-day that the image definition is
+created on. Note that naming conventions for `TARGET_IMAGE` follow the
+format `USER_NAME/IMAGE_NAME:TAG` where `USER_NAME` is your Dockerhub
+username and `:TAG` is optional.
 
 After pushing the new image, you will need to update the
 `docker-compose.yml` file to use it.
