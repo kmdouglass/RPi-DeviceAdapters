@@ -6,5 +6,5 @@ services:
     image: kmdouglass/rpi-micromanager:build-20181006
     volumes:
       - /opt/rpi-micromanager:/micro-manager/src
-    # first true is for configure, second is for patch
+    # true argument is for configure
     command: /micro-manager/setup true
