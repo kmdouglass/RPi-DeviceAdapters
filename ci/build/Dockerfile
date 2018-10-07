@@ -8,6 +8,7 @@ RUN apt-get update && apt-get -y install --no-install-recommends \
     autoconf \
     automake \
     build-essential \
+    ccache \
     git \
     libatlas-base-dev \
     libboost-dev \
@@ -28,6 +29,12 @@ RUN [ "cross-build-end" ]
 # Set up the mount point for the source files and setup script
 ADD setup /micro-manager/
 VOLUME /micro-manager/src
+
+# Set up ccache
+ADD ccache.conf /root/
+ENV CCACHE_CONFIGPATH /root/ccache.conf
+ENV PATH "/usr/lib/ccache:$PATH"
+VOLUME /root/.ccache
 
 WORKDIR /micro-manager/src
 ENTRYPOINT [ "/sbin/tini", "-s", "--" ]

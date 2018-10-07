@@ -9,12 +9,14 @@ Micro-Manager for the Raspberry Pi's ARM architecture on a x86
 workstation. The files include
 
 - **Dockerfile** a Docker image for cross-compiling Micro-Manager for
-  the ARM architectures
+  the ARM architecture
 - **setup** a bash script that is run inside the build container and
   launches the build
 - **docker-compose.yml** configuration file that handles mounting of
   the source code and dependency directories inside the build
   container
+- **ccache.conf** configuration file for the compiler cache. Changes
+  to this file will rarely be necessary
 
 ## Requirements
 
@@ -25,6 +27,7 @@ workstation. The files include
 
 The Micro-Manager source code and dependencies require the following
 tools to obtain:
+
 - [Git](https://git-scm.com/)
 - [Subversion](https://subversion.apache.org/)
 
@@ -45,21 +48,26 @@ following structure within the `/opt/rpi-micromanager` directory:
 - **micro-manager** the Git repository of Micro-manager. Currently the
   head of the `mm2` branch is used and must be checked out
 
+In addition to this directory layout, you will need to create a folder
+named `.ccache` (note the double 'c'!) in your `$HOME` directory for
+the compiler cache.
+
 There is a convenience script called `prebuild.sh` in the `ci` folder
 that may be used to automatically checkout the Micro-Manager source
-code and dependencies. It will also merge this project's code into the
-Micro-Manager source code directory. To use it, pass the installation
-directory on the command line when calling the script:
+code and dependencies, creating all the necessary folders in the
+process. It will also merge this project's code into the Micro-Manager
+source code directory. To use it, pass the installation directory on
+the command line when calling the script:
 
 ```
 $ ci/prebuild.sh /opt/rpi-micromanager
 ```
 
-
 After you have the directory structure laid out, you can build
-Micro-Manager by running the following command from this directory:
+Micro-Manager by running the following commands from this directory:
 
 ```
+$ docker-compose pull
 $ docker-compose up
 ```
 
