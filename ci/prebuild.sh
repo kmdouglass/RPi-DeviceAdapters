@@ -49,7 +49,7 @@ function merge_directories {
     echo -e "Done merging with Micro-Manager source.\n"
 }
 
-mkdir -p $SRC_DIR
+mkdir -p $SRC_DIR $HOME/.ccache
 get_mm_source
 
 # Unset error checking to prevent svn timeout errors

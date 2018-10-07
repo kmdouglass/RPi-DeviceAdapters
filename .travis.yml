@@ -1,9 +1,19 @@
 language: cpp
 sudo: required
-install:
+cache: ccache
+services:
+  - docker
+before_install:
   - echo "Testing CI system..."
   - (cd ci; bats tests/*)
   - (cd ci/build; bats tests/*)
+  - echo "Registering QEMU with Travis..."
+  - docker run --rm --privileged multiarch/qemu-user-static:register --reset
+install:
   - ci/install_googletest.sh
+  - ci/prebuild.sh /opt/rpi-micromanager
 script:
   - make && make test
+  - cd ci/build
+  - docker-compose pull
+  - docker-compose up

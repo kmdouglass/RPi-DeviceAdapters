@@ -3,8 +3,10 @@ version: '3'
 services:
   rpi-build:
     build: .
-    image: kmdouglass/rpi-micromanager:build-20181006
+    image: kmdouglass/rpi-micromanager:build-20181007
+    # .ccache directory must be relative to user home in Travis-CI
     volumes:
       - /opt/rpi-micromanager:/micro-manager/src
-    # first true is for configure, second is for patch
+      - ~/.ccache:/root/.ccache
+    # true argument is for configure
     command: /micro-manager/setup true
