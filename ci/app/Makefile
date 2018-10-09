@@ -19,4 +19,5 @@ build:
 	rm -rf build
 
 push:
-	@docker push ${NAME}
+	@docker push ${IMG}
+	@docker push ${LATEST}
