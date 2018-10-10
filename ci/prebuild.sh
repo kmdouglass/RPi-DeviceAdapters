@@ -32,7 +32,8 @@ function get_3rdpartypublic {
     echo "Checking out the 3rdpartypublic dependencies. This can take a while..."
     svn co $SVN_URL $DEP_DIR > /dev/null 2>&1
     while [ $? -ne 0 ]; do :
-        # Continues the checkout in case timeout errors occur
+	# Continues the checkout in case timeout errors occur
+        echo "Still working..."
         svn cleanup $DEP_DIR > /dev/null
         svn co $SVN_URL $DEP_DIR > /dev/null 2>&1
     done
