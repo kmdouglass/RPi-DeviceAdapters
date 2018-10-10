@@ -3,17 +3,28 @@ sudo: required
 cache: ccache
 services:
   - docker
+env:
+  global:
+    - secure: MsrmyvcB0YGXt3MHdLGlM/IZy6cMHJDN4sfZVKwLchF2/cgvsxvN/ZU4cfksek2y/mgHXS/NlrorZCJBGS2oTrr6sH9/n9eT2enVNlRjoCd5FwNYTHs9L9M6LQH9mtH8n/fdgXKJZ9a3kmoPKY1amX9TKzPTk4LxDNQN1u4b7HBYukGCVmf2tAcAfGbN+wthM/f5hkGIpsOYwchtDApLwA/ps69p7udyGR/brpud9DpeADk1Tt6WfPOX+TvDgR6G7e3y09ZQOZ4yxRVlV1daF9i8gAcfaPewRGRwXNt5QVVVLOWRIsp23KKlUO3ixRTpM1Ze/d//vh1l5MK9rDij0JqNCGX/CO/HEtur+qIgrUCJqBTzF7xQNaiJcLi+NUtxL4s2Jg2MYVrO3SUl1PKFz2MmuONGNL+Bla7u+W56wPIsCesHTa8yWFyJfmEUSDs/QjMoCapxNRujrzjjMjQGaOJwP9RfJKkIxhTo7oUaerLRRddPZbxERFWaQVXmN7SSrmI05HR1I+1VsPyykdcIm4uxochwiKGEKf7D3a4BlngPH/kxmTqXZGlHrLMCHOexFb2TZpY6TsnTTp1kIFAKt7QHtoKj63cJ4yElTyi9n0/muGM34DSAk6pIskdabC6TGOsk+0oFQMIJZ144MsKQhtrRQeuXupvoeSNfTvPV9CA=
+    - secure: Zq0nqwwRZa/KLlwz7ggfGzUcsNUBWNFTXP/9KXNhwa003SdDATHM6WEqgPvpBVyd12JzB5xzoIV+MzRVlA45pV2mT7Jdq51BQCCtWdJhA63/kVNl89NN+tFGPh+/dHur0KPFcov0VrC9MVdhDbrqbOr+dYfwiLbVOyk05kYe5QBhEkRBbenx0w8QS1mqum/ak3iDBw89eIUslhcuX49Lxmyw9r7CW29Lkm3mgdaroJyqwvcEH4Pw8nlrLbxF1XRVBuRFYPCPfjt7J5Bi4Onj4NAOu3fhEgpxFc0x4JtpLCbpTUe6W6Aw7Hb378mLFEBob5CsTI+/w3TevA+BKzZ+a/x2Z5sm/crhK2NJDWRY4tPkfBm9PcFTTt/CqGyda4QvbPR3CP0OjdSIwG9MjfBlLnl+FroYuEqzkQO+JHeNfs3PWseu70AxWzGeKcY3eFMijE6wPRzk+6+fl077wHKTKo3NfxGNQDESWeI0q8wD5FYY4fskUkD1pgZ32F8AIM+4h0yplGkfApcz9Oi+NegHFR5E+S7KFtoCBIeusyjfYArw/XMf8d+8XlYBe1x6Mzd3AxBpzZ020P08vI59Kwz+ICARpsw4k6HeDk4QF/hpOC/CsmPpt9zomYNnkvqk6Ia6qfTbVkpH2t42XVGSvHvlI8IOhlj0RukH7eucosGR6oI=
+
 before_install:
   - echo "Testing CI system..."
   - (cd ci; bats tests/*)
   - (cd ci/build; bats tests/*)
   - echo "Registering QEMU with Travis..."
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 install:
   - ci/install_googletest.sh
   - ci/prebuild.sh /opt/rpi-micromanager
 script:
   - make && make test
-  - cd ci/build
+  - cd $TRAVIS_BUILD_DIR/ci/build
   - docker-compose pull
   - docker-compose up
+deploy:
+  provider: script
+  script: (cd $TRAVIS_BUILD_DIR/ci/app; make build push)
+  on:
+    branch: master
