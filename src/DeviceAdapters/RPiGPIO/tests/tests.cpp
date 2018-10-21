@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 #include <gtest/gtest.h>
-#include "../src/gpio.h"
+#include "../gpio.h"
 
 class GPIOTests : public ::testing::Test {
 public:

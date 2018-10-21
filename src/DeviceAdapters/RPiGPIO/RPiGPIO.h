@@ -13,11 +13,11 @@ extern "C" {
   #include "gpio.h"
 }
 
-class RaspberryPi : public CGenericBase<RaspberryPi>
+class RPiGPIO : public CGenericBase<RPiGPIO>
 {
 public:
-  RaspberryPi();
-  ~RaspberryPi();
+  RPiGPIO();
+  ~RPiGPIO();
 
   // MMDevice API
   int Initialize();
