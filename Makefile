@@ -1,10 +1,10 @@
-IDIR=src
+IDIR=src/DeviceAdapters/RPiGPIO
 CC=gcc
 CCFLAGS=-Wall -I$(IDIR)
 CXX=g++
 CXXFLAGS=-std=c++11 -Wall -I$(IDIR)
 
-DEPS=src/gpio.h
+DEPS=$(IDIR)/gpio.h
 
 MKDIR_P=mkdir -p
 DIRECTORIES=bin
@@ -21,10 +21,10 @@ directories: $(DIRECTORIES)
 $(DIRECTORIES):
 	$(MKDIR_P) $@
 
-bin/example: src/gpio.c src/example.c
+bin/example: src/DeviceAdapters/RPiGPIO/gpio.c src/DeviceAdapters/RPiGPIO/example.c
 	$(CC) $(CCFLAGS) $^ -o $@
 
-bin/tests: src/gpio.c tests/tests.cpp
+bin/tests: src/DeviceAdapters/RPiGPIO/gpio.c src/DeviceAdapters/RPiGPIO/tests/tests.cpp
 	$(CXX) $(CXXFLAGS) $^ -lgtest -lgtest_main -lpthread -o $@
 
 test: bin/tests

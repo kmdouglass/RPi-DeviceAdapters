@@ -5,7 +5,7 @@
  * Micro-Manager device adapter for the Raspberry Pi.
  */
 
-#include "RaspberryPi.h"
+#include "RPiGPIO.h"
 #include "ModuleInterface.h"
 #include <vector>
 
@@ -13,7 +13,7 @@
 
 using namespace std;
 
-const char* g_DeviceName = "RaspberryPi";
+const char* g_DeviceName = "RPiGPIO";
 
 //////////////////////////////////////////////////////////////////////
 // Exported MMDevice API
@@ -40,7 +40,7 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName)
   if (strcmp(deviceName, g_DeviceName) == 0)
   {
      // create the Raspberry Pi device
-     return new RaspberryPi();
+     return new RPiGPIO();
   }
   // ...supplied name not recognized
   return 0;
@@ -52,11 +52,11 @@ MODULE_API void DeleteDevice(MM::Device* pDevice)
 }
 
 //////////////////////////////////////////////////////////////////////
-// RaspberryPi implementation
+// RPiGPIO implementation
 // ~~~~~~~~~~~~~~~~~~~~~~~
 
 /**
- * RaspberryPi constructor.
+ * RPiGPIO constructor.
  * Setup default all variables and create device properties required
  * to exist before intialization. In this case, no such properties
  * were required. All properties will be created in the Initialize()
@@ -67,7 +67,7 @@ MODULE_API void DeleteDevice(MM::Device* pDevice)
  * constructor and perform most of the initialization in the
  * Initialize() method.
  */
-RaspberryPi::RaspberryPi() :
+RPiGPIO::RPiGPIO() :
   pinState_ (0),
   initialized_ (false)
 {
@@ -76,13 +76,13 @@ RaspberryPi::RaspberryPi() :
 }
 
 /**
- * RaspberryPi destructor.
+ * RPiGPIO destructor.
  * If this device used as intended within the Micro-Manager system,
  * Shutdown() will be always called before the destructor. But in any case
  * we need to make sure that all resources are properly released even if
  * Shutdown() was not called.
  */
-RaspberryPi::~RaspberryPi()
+RPiGPIO::~RPiGPIO()
 {
   if (initialized_)
      Shutdown();
@@ -92,7 +92,7 @@ RaspberryPi::~RaspberryPi()
  * Obtains device name.
  * Required by the MM::Device API.
  */
-void RaspberryPi::GetName(char* name) const
+void RPiGPIO::GetName(char* name) const
 {
   // We just return the name we use for referring to this
   // device adapter.
@@ -105,7 +105,7 @@ void RaspberryPi::GetName(char* name) const
  * Device properties are typically created here as well.
  * Required by the MM::Device API.
  */
-int RaspberryPi::Initialize()
+int RPiGPIO::Initialize()
 {
   if (initialized_)
     return DEVICE_OK;
@@ -150,7 +150,7 @@ int RaspberryPi::Initialize()
  * Shutdown() may be called multiple times in a row.
  * Required by the MM::Device API.
  */
-int RaspberryPi::Shutdown()
+int RPiGPIO::Shutdown()
 {
   initialized_ = false;
   return DEVICE_OK;
@@ -160,10 +160,10 @@ int RaspberryPi::Shutdown()
 // Property Generators
 //////////////////////////////////////////////////////////////////////
 
-void RaspberryPi::GenerateControlledProperties()
+void RPiGPIO::GenerateControlledProperties()
 {
   // Turn on/off the GPIO pin
-  CPropertyAction* pAct = new CPropertyAction(this, &RaspberryPi::OnPinState);
+  CPropertyAction* pAct = new CPropertyAction(this, &RPiGPIO::OnPinState);
   CreateProperty("Switch On/Off", "Off", MM::String, false, pAct);
   std::vector<std::string> commands;
   commands.push_back("Off");
@@ -174,7 +174,7 @@ void RaspberryPi::GenerateControlledProperties()
 //////////////////////////////////////////////////////////////////////
 // Action handlers
 //////////////////////////////////////////////////////////////////////
-int RaspberryPi::OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct)
+int RPiGPIO::OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
 
 	if (eAct == MM::BeforeGet)
@@ -202,7 +202,7 @@ int RaspberryPi::OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct)
 /**
  Sets the state of the pin (on/off).
  */
-void RaspberryPi::SetPinState(int pinState)
+void RPiGPIO::SetPinState(int pinState)
 {
   pinState_ = pinState;
   digitalWrite(&registers, PIN, pinState);

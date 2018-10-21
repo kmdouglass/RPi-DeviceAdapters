@@ -42,11 +42,8 @@ function get_3rdpartypublic {
 
 function merge_directories {
     echo "Merging device adapter files with Micro-Manager source..."
-    cp -r $BASE_DIR/build/micro-manager/* $MM_SRC_DIR
-
-    mkdir -p $MM_SRC_DIR/DeviceAdapters/RaspberryPi
-    cp $BASE_DIR/../src/RaspberryPi.* $MM_SRC_DIR/DeviceAdapters/RaspberryPi
-    cp $BASE_DIR/../src/gpio.* $MM_SRC_DIR/DeviceAdapters/RaspberryPi
+    cp -r $BASE_DIR/../src/* $MM_SRC_DIR
+    
     echo -e "Done merging with Micro-Manager source.\n"
 }
 

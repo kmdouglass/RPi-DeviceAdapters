@@ -414,7 +414,7 @@ AC_CHECK_FUNCS([memset])
 # This is the list of subdirectories containing a Makefile.am.
 m4_define([device_adapter_dirs], [m4_strip([
    DemoCamera
-   RaspberryPi
+   RPiGPIO
 ])])
 
 AC_CONFIG_FILES(Makefile m4_map_args_w(device_adapter_dirs, [], [/Makefile], [ ]))
