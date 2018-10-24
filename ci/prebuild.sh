@@ -42,7 +42,7 @@ function get_3rdpartypublic {
 
 function merge_directories {
     echo "Merging device adapter files with Micro-Manager source..."
-    cp -r $BASE_DIR/../src/* $MM_SRC_DIR
+    $BASE_DIR/merge.sh "$SRC_DIR"
     
     echo -e "Done merging with Micro-Manager source.\n"
 }
