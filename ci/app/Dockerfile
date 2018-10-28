@@ -14,14 +14,17 @@ RUN apt-get update && apt-get -y install --no-install-recommends \
     && pip3 install numpy
 
 # Copy in the Micro-Manager source files
-RUN useradd -ms /bin/bash micro-manager
-WORKDIR /home/micro-manager/app
-COPY --chown=micro-manager:micro-manager build/. .
+RUN useradd -ms /bin/bash micro-manager && \
+    mkdir -p /home/micro-manager/app/userdata && \
+    chown -R micro-manager:micro-manager /home/micro-manager/app
+COPY --chown=micro-manager:micro-manager build/. /home/micro-manager/app
 
 RUN [ "cross-build-end" ]
 
 # Final environment configuration
 USER micro-manager:micro-manager
+VOLUME /home/micro-manager/app/userdata
+WORKDIR /home/micro-manager/app/userdata
 ENV PYTHONPATH /home/micro-manager/app/lib/micro-manager
-ENTRYPOINT ["/sbin/tini", "-s", "--"]
-CMD ["/usr/bin/python3"]
+
+ENTRYPOINT ["/sbin/tini", "-s", "--", "/usr/bin/python3"]
