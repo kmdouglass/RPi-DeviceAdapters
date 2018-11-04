@@ -4,3 +4,7 @@ ci/app/build/
 
 # Sphinx
 docs/_*
+
+# Python
+*egg-info*
+__pycache__
