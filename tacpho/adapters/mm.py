@@ -73,15 +73,12 @@ def cmd_run(args):
     """
     client = docker.from_env()
     image = "{image}:{tag}".format(image=args.name, tag=args.tag)
-    script = getattr(args, "script", None)
 
-    # If a script is provided, mount the directory it is located in
-    if script:
-        userdata_path = os.path.dirname(os.path.abspath(script))
-        volume = {userdata_path: {"bind": CONTAINER_USERDATA_FOLDER, "mode": "rw"}}
-        logger.info("Will mount directory {} into the container.".format(userdata_path))
-    else:
-        volume = None
+    # Mount the directory it is located in
+    _, script = os.path.split(args.script)
+    userdata_path = os.path.dirname(os.path.abspath(args.script))
+    volume = {userdata_path: {"bind": CONTAINER_USERDATA_FOLDER, "mode": "rw"}}
+    logger.info("Will mount directory {} into the container.".format(userdata_path))
 
     config = {
         "detach": True,
