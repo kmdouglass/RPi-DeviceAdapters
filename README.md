@@ -20,6 +20,30 @@ RPi-DeviceAdapters contains the following tools:
   Python wrapper on the Raspberry Pi and that can be easily downloaded
   onto any Pi that has Docker installed on it
 
+
+## Quickstart
+
+On a Raspberry Pi that has [Docker](https://www.docker.com/) already
+installed , create a file named `script.py` that contains the
+following lines:
+
+```
+import MMCorePy
+mmc = MMCorePy.CMMCore()
+print(mmc.getVersionInfo())
+```
+
+Run the following commands from a terminal window from the same Pi:
+
+```
+$ pip3 install tacpho.adapters
+$ mm.py pull
+$ mm.py run script.py
+```
+
+`mm.py pull` may take several minutes to download the
+application on the first use.
+
 ## Documentation
 
 https://rpi-deviceadapters.readthedocs.io/en/latest/
