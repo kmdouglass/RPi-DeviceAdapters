@@ -48,6 +48,9 @@ application on the first use.
 
 https://rpi-deviceadapters.readthedocs.io/en/latest/
 
+Comments, questions, and feedback may be sent to kyle.m.douglass AT
+gmail.com.
+
 ## Related pages
 
 - **[rpi-micromanager](https://hub.docker.com/r/kmdouglass/rpi-micromanager/)** The project's Docker images
