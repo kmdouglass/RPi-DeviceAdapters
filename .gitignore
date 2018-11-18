@@ -1,4 +1,7 @@
+# Emacs
 *~
+.dir-locals.el
+
 bin/
 ci/app/build/
 
