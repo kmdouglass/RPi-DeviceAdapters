@@ -7,6 +7,7 @@ import grp
 import logging
 import os
 import sys
+
 from tacpho.adapters._version import __version__
 
 
@@ -16,6 +17,22 @@ DEFAULT_DOCKER_TAG = "latest"
 OUTPUT_DECODING = "utf-8"
 
 logger = logging.getLogger(__name__)
+
+
+class DockerError(Exception):
+    pass
+
+
+class GroupNotFoundError(Exception):
+    pass
+
+
+class MMError(Exception):
+    """All general errors raise this exception.
+
+    """
+
+    pass
 
 
 def get_group_id(name):
@@ -34,16 +51,22 @@ def get_group_id(name):
     """
     try:
         return grp.getgrnam(name).gr_gid
-    except KeyError:
+    except KeyError as ex:
         logger.error("The UNIX group '{}' cannot be found on this system.".format(name))
-        sys.exit(1)
+        raise GroupNotFoundError from ex
 
 
-def cmd_pull(args):
+def cmd_pull(client, args):
     """Pulls the application image from Docker Hub.
 
+    Parameters
+    ----------
+    client : docker.client.DockerClient
+        The Docker API client.
+    args : argparse.Namespace
+        A Namespace object populated with the values of the command line arguments.
+
     """
-    client = docker.from_env()
     image = "{image}:{tag}".format(image=args.name, tag=args.tag)
     try:
         logger.info(
@@ -52,18 +75,27 @@ def cmd_pull(args):
         client.images.pull(args.name, args.tag)
         logger.info("Done.")
     except docker.errors.requests.exceptions.HTTPError as ex:
+        # Cannot find the image on the server
         logger.error(str(ex))
+        raise DockerError from ex
     except Exception as ex:
         logger.error(
             "Failed to pull {} from Docker Hub. Use the debug '-d' flag for more info.".format(
                 image
             )
         )
-        logger.debug(str(ex))
+        raise MMError from ex
 
 
-def cmd_run(args):
+def cmd_run(client, args):
     """Runs the application container.
+
+    Parameters
+    ----------
+    client : docker.client.DockerClient
+        The Docker API client.
+    args : argparse.Namespace
+        A Namespace object populated with the values of the command line arguments.
 
     Returns
     -------
@@ -71,7 +103,6 @@ def cmd_run(args):
         The Docker container of the application.
 
     """
-    client = docker.from_env()
     image = "{image}:{tag}".format(image=args.name, tag=args.tag)
 
     # Mount the directory it is located in
@@ -93,17 +124,23 @@ def cmd_run(args):
         return client.containers.run(image, script, **config)
     except docker.errors.APIError as ex:
         logger.error(str(ex))
+        raise DockerError from ex
     except Exception as ex:
         logger.error(
             "Failed to run container {}. Use the debug flag '-d' for more info.".format(
                 image
             )
         )
-        logger.debug(str(ex))
+        raise MMError from ex
 
 
-def parse_cli_args():
+def parse_cli_args(cli_args):
     """Parses the command line arguments.
+
+    Parameters
+    ----------
+    cli_args : list of str
+        The list of command line arguments passed during script invocation.
 
     Returns
     -------
@@ -161,17 +198,24 @@ def parse_cli_args():
     )
     subparser_run.set_defaults(func=cmd_run)
 
-    return parser.parse_args()
+    return parser.parse_args(cli_args)
 
 
 def main():
-    args = parse_cli_args()
+    args = parse_cli_args(sys.argv[1:])
 
     fmt = "%(asctime)s %(hostname)s %(funcName)s[%(process)d] %(levelname)s %(message)s"
     coloredlogs.install(level="DEBUG" if args.debug else "INFO", fmt=fmt)
 
+    # Get the Docker client
+    args.client = docker.from_env()
+
     if hasattr(args, "func"):
-        docker_proc = args.func(args)
+        try:
+            docker_proc = args.func(args)
+        except Exception as ex:
+            logger.critical("mm.py command failed: {}".format(str(ex)))
+            sys.exit(1)
 
         # Handles multiple return types from the docker-py API
         try:

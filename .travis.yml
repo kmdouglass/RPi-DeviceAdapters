@@ -20,9 +20,14 @@ install:
   - ci/prebuild.sh /opt/rpi-micromanager
 script:
   - make && make test
+  - echo "Building the device adapter libraries..."
   - cd $TRAVIS_BUILD_DIR/ci/build
   - docker-compose pull
   - docker-compose up
+  - echo "Running unit tests on the app script..."
+  - cd $TRAVIS_BUILD_DIR
+  - docker build -f ci/app-tester/Dockerfile -t kmdouglass/rpi-micromanager:app-tester .
+  - docker run -it --rm kmdouglass/rpi-micromanager:app-tester
 deploy:
   provider: script
   script: (cd $TRAVIS_BUILD_DIR/ci/app; make build push)
