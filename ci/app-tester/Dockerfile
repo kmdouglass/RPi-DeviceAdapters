@@ -3,12 +3,6 @@ MAINTAINER Kyle M. Douglass <kyle.m.douglass@gmail.com>
 
 RUN [ "cross-build-start" ]
 
-# Install the run-time dependencies
-#RUN apt-get update && apt-get -y install --no-install-recommends \
-#    python3-pip \
-#    python3-setuptools \
-#    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
 RUN useradd -ms /bin/bash tester \
     && mkdir -p /home/tester/userdata \
     && chown tester:tester /home/tester/userdata
