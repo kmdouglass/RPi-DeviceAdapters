@@ -2,22 +2,22 @@
  * Kyle M. Douglass, 2018
  * kyle.m.douglass@gmail.com
  *
- * Micro-Manager device adapter for the Raspberry Pi.
+ * Micro-Manager device adapter for a Raspberry Pi GPIO pin.
  */
+
+#include <string.h>
+#include <vector>
 
 #include "RPiGPIO.h"
 #include "ModuleInterface.h"
-#include <vector>
-
-#define PIN 4
 
 using namespace std;
 
 const char* g_DeviceName = "RPiGPIO";
 
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Exported MMDevice API
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * List all supported hardware devices here
@@ -27,7 +27,7 @@ MODULE_API void InitializeModuleData()
   RegisterDevice(
     g_DeviceName,
     MM::GenericDevice,
-    "Control of the Raspberry Pi GPIO pins."
+    "Control of a single Raspberry Pi GPIO pin."
   );
 }
 
@@ -36,10 +36,10 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName)
   if (deviceName == 0)
      return 0;
 
-  // decide which device class to create based on the deviceName parameter
+  // Decide which device class to create based on the deviceName parameter
   if (strcmp(deviceName, g_DeviceName) == 0)
   {
-     // create the Raspberry Pi device
+     // Create the Raspberry Pi device...
      return new RPiGPIO();
   }
   // ...supplied name not recognized
@@ -51,36 +51,47 @@ MODULE_API void DeleteDevice(MM::Device* pDevice)
   delete pDevice;
 }
 
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // RPiGPIO implementation
-// ~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~
+
+/**
+ * GPIO pin ids on the Raspberry Pi.
+ *
+ * Pin numbers follow the Broadcom numbering scheme.
+ */
+const std::array<long, NUM_PINS> RPiGPIO::pins = {
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+  15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27
+};
 
 /**
  * RPiGPIO constructor.
- * Setup default all variables and create device properties required
- * to exist before intialization. In this case, no such properties
- * were required. All properties will be created in the Initialize()
- * method.
  *
- * As a general guideline Micro-Manager devices do not access hardware
- * in the the constructor. We should do as little as possible in the
- * constructor and perform most of the initialization in the
- * Initialize() method.
  */
 RPiGPIO::RPiGPIO() :
+  pinNumber_ (0),
   pinState_ (0),
   initialized_ (false)
 {
-  // call the base class method to set-up default error codes/messages
+  SetErrorText(ERR_PIN_CHANGE_FORBIDDEN, "Cannot change pin number after initialization.");
   InitializeDefaultErrorMessages();
+
+  // Setup the GPIO pin number property.
+  CPropertyAction* pAct = new CPropertyAction(this, &RPiGPIO::OnPinNumber);
+  CreateIntegerProperty("Pin", pinNumber_, false, pAct, true);
+  for (const auto &pin : pins) {
+    std::string pin_str = std::to_string(pin);
+    AddAllowedValue("Pin", pin_str.c_str());
+  }
 }
 
 /**
  * RPiGPIO destructor.
- * If this device used as intended within the Micro-Manager system,
- * Shutdown() will be always called before the destructor. But in any case
- * we need to make sure that all resources are properly released even if
- * Shutdown() was not called.
+ *
+ * If this device used as intended within the Micro-Manager system, Shutdown() will be always
+ * called before the destructor. But in any case we need to make sure that all resources are
+ * properly released even if Shutdown() was not called.
  */
 RPiGPIO::~RPiGPIO()
 {
@@ -89,54 +100,48 @@ RPiGPIO::~RPiGPIO()
 }
 
 /**
- * Obtains device name.
- * Required by the MM::Device API.
+ * Obtains device name. Required by the MM::Device API.
  */
 void RPiGPIO::GetName(char* name) const
 {
-  // We just return the name we use for referring to this
-  // device adapter.
+  // We just return the name we use for referring to this device adapter.
   CDeviceUtils::CopyLimitedString(name, g_DeviceName);
 }
 
 /**
  * Intializes the hardware.
- * Typically we access and initialize hardware at this point.
- * Device properties are typically created here as well.
- * Required by the MM::Device API.
+ *
+ * Typically we access and initialize hardware at this point.  Device properties are typically
+ * created here as well. Required by the MM::Device API.
  */
 int RPiGPIO::Initialize()
 {
   if (initialized_)
     return DEVICE_OK;
 
-  // initialize the GPIO registers
-  // TODO Move to a method like GenerateControlledProperties
+  // Initialize the GPIO registers.
   pioInit(&registers);
-  pinMode(&registers, PIN, OUTPUT);
+  pinMode(&registers, pinNumber_, OUTPUT);
 
-  // set read-only properties
+  // Set read-only properties
   // ------------------------
-  // name
-  int nRet = CreateStringProperty(MM::g_Keyword_Name, g_DeviceName, true);
-  if (DEVICE_OK != nRet)
-    return nRet;
+  // Name
+  int ret = CreateStringProperty(MM::g_Keyword_Name, g_DeviceName, true);
+  if (DEVICE_OK != ret)
+    return ret;
 
-  // description
-  nRet = CreateStringProperty(
-           MM::g_Keyword_Description,
-           "Controls the Raspberry Pi GPIO pins",
-           true);
-  if (DEVICE_OK != nRet)
-    return nRet;
+  // Description
+  ret = CreateStringProperty(MM::g_Keyword_Description, "Controls a Raspberry Pi GPIO pin", true);
+  if (DEVICE_OK != ret)
+    return ret;
 
-  // set property list
+  // Set property list
   // -----------------
   GenerateControlledProperties();
 
-  // synchronize all properties
+  // Synchronize all properties
   // --------------------------
-  int ret = UpdateStatus();
+  ret = UpdateStatus();
   if (ret != DEVICE_OK)
     return ret;
 
@@ -146,9 +151,9 @@ int RPiGPIO::Initialize()
 
 /**
  * Shuts down (unloads) the device.
- * Ideally this method will completely unload the device and release all resources.
- * Shutdown() may be called multiple times in a row.
- * Required by the MM::Device API.
+ * 
+ * Ideally this method will completely unload the device and release all resources.  Shutdown() may
+ * be called multiple times in a row.  Required by the MM::Device API.
  */
 int RPiGPIO::Shutdown()
 {
@@ -156,54 +161,70 @@ int RPiGPIO::Shutdown()
   return DEVICE_OK;
 }
 
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Property Generators
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RPiGPIO::GenerateControlledProperties()
 {
   // Turn on/off the GPIO pin
   CPropertyAction* pAct = new CPropertyAction(this, &RPiGPIO::OnPinState);
-  CreateProperty("Switch On/Off", "Off", MM::String, false, pAct);
-  std::vector<std::string> commands;
-  commands.push_back("Off");
-  commands.push_back("On");
-  SetAllowedValues("Switch On/Off", commands);
+  CreateIntegerProperty("State", 0, false, pAct);
+  std::vector<std::string> states;
+  states.push_back("0");
+  states.push_back("1");
+  SetAllowedValues("State", states);
 }
 
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Action handlers
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+int RPiGPIO::OnPinNumber(MM::PropertyBase* pProp,MM::ActionType eAct)
+{
+  if (eAct == MM::BeforeGet)
+  {
+    pProp->Set(pinNumber_);
+  }
+  else if (eAct == MM::AfterSet) {
+
+    if (initialized_)
+    {
+      // Revert the pin number
+      pProp->Set(pinNumber_);
+      return ERR_PIN_CHANGE_FORBIDDEN;
+    }
+    pProp->Get(pinNumber_);
+    
+  }
+
+  return DEVICE_OK;
+}
+
 int RPiGPIO::OnPinState(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
 
-	if (eAct == MM::BeforeGet)
-	{
-	  // TODO
-	}
-	else if (eAct == MM::AfterSet)
-	{
-          std::string state;
-	  pProp->Get(state);
+  if (eAct == MM::BeforeGet)
+  {
+    pProp->Set(pinState_);
+  }
+  else if (eAct == MM::AfterSet)
+  {
+    pProp->Get(pinState_);
+    this->SetPinState(pinState_);
+  }
 
-	  if (state == "Off")
-	    this->SetPinState(0);
-	  else if (state == "On")
-	    this->SetPinState(1);
-	}
-
-	return DEVICE_OK;
+  return DEVICE_OK;
 }
 
-//////////////////////////////////////////////////////////////////////
-// Implementation details
-//////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementation
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- Sets the state of the pin (on/off).
+ * Sets the state of the pin (on/off).
  */
-void RPiGPIO::SetPinState(int pinState)
+void RPiGPIO::SetPinState(long pinState)
 {
-  pinState_ = pinState;
-  digitalWrite(&registers, PIN, pinState);
+  int state = static_cast<int>(pinState);
+  digitalWrite(&registers, pinNumber_, state);
 }
