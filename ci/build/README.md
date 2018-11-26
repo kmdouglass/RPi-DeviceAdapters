@@ -24,12 +24,32 @@ workstation. The files include
 - [Micro-Manager dependencies](https://micro-manager.org/wiki/Micro-Manager_Source_Code) (also called 3rdpartypublic)
 - [Docker](https://docs.docker.com/install/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
+- [QEMU](https://www.qemu.org/)
 
 The Micro-Manager source code and dependencies require the following
 tools to obtain:
 
 - [Git](https://git-scm.com/)
 - [Subversion](https://subversion.apache.org/)
+
+### Setup the QEMU emulator
+
+This project will produce libraries that can only be used on an ARM-based system like the
+Pi. Building these libraries on a x86_64 system requires setting up a platform emulator like
+QEMU. This may be done as follows:
+
+1. On Ubuntu, install the emulation packages with the commands:
+
+```
+$ sudo apt update
+$ sudo install qemu qemu-user-static qemu-user binfmt-support
+```
+
+2. Register QEMU in the build agent:
+
+```
+$ docker run --rm --privileged multiarch/qemu-user-static:register --reset
+```
 
 ## Building Micro-Manager
 

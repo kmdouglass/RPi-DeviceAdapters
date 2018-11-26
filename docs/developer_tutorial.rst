@@ -21,12 +21,35 @@ Requirements
 - `Docker`_
 - `Docker Compose`_
 - `Make`_
+- `QEMU`_
 
 .. _Git: https://git-scm.com/downloads
 .. _Subversion: https://subversion.apache.org/
 .. _Docker: https://docs.docker.com/install/
 .. _Docker Compose: https://docs.docker.com/compose/
 .. _Make: https://www.gnu.org/software/make/
+.. _QEMU: https://www.qemu.org/
+
+QEMU installation
+.................
+
+The QEMU emulator is used to emulate a ARM processor architecture on a x86_64 system. It is setup
+as follows:
+
+On Ubuntu, install the emulation packages with the commands:
+
+.. code-block:: console
+
+   $ sudo apt update
+   $ sudo install qemu qemu-user-static qemu-user binfmt-support
+
+If you are not using Ubuntu, search for and install these packages in your system's respective
+package manager. Next, register QEMU in the build agent:
+
+.. code-block:: console
+		
+   $ docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
 
 Setup
 +++++
