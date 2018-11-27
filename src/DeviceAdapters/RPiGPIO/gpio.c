@@ -39,13 +39,16 @@ void pioInit(gpio_registers* registers) {
     exit(-1);
   }
 
-  gpio = (volatile unsigned *)reg_map;
+  gpio = (volatile unsigned int *)reg_map;
   
-  (*registers)._memory_map = (volatile unsigned *)gpio;
+  (*registers)._memory_map = (volatile unsigned int *)gpio;
   (*registers).fsel = (volatile unsigned int *)(gpio + GPFSEL);
   (*registers).set  = (volatile unsigned int *)(gpio + GPSET);
   (*registers).clr  = (volatile unsigned int *)(gpio + GPCLR);
   (*registers).lev  = (volatile unsigned int *)(gpio + GPLEV);
+
+  // Clean up; the memory map will persist
+  close(mem_fd);
 }
 
 /**
