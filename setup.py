@@ -6,12 +6,12 @@ from setuptools import setup
 version_file = os.path.join("tacpho", "adapters", "_version.py")
 with open(version_file, "r") as file:
     line = file.readline()
-    pattern = re.compile(r"(?:\d+\.){2}\d+")
+    pattern = re.compile(r"(?:\d+\.){2}\d+(?:-dev)?")
     version = re.search(pattern, line).group()
 
 # Parse the requirements file
-with open("requirements.txt") as f:
-    requirements = f.read().splitlines()
+with open("requirements.txt") as file:
+    requirements = file.read().splitlines()
 
 config = {
     "version": version,
