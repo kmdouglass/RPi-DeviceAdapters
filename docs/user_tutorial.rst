@@ -103,7 +103,7 @@ Execute a script
 
 Open your text editor and enter the following code:
 
-.. literalinclude:: ../examples/tutorial.py
+.. literalinclude:: ../examples/RPiTutorial.py
    :language: python
    :linenos:
 
@@ -127,10 +127,12 @@ You should see the output from the script appear in your console.
 Next steps
 ----------
 
-Check out the `Micro-Manager documentation`_ on its Python interface
-for more information about interacting with the Micro-Manager core.
+Example scripts for other device adapters may be found in the `examples`_ folder of the
+RPi-DeviceAdapters root directory. Check out the `Micro-Manager documentation`_ on its Python
+interface for more information about interacting with the Micro-Manager core.
 
 Do not forget to update the RPi-DeviceAdapters application when new
 versions and device adapters become available by running `mm.py pull`.
 
+.. _examples: https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/examples
 .. _Micro-Manager documentation: https://micro-manager.org/wiki/Using_the_Micro-Manager_python_library

@@ -46,7 +46,8 @@ application on the first use.
 
 ## Documentation
 
-https://rpi-deviceadapters.readthedocs.io/en/latest/
+- https://rpi-deviceadapters.readthedocs.io/en/latest/
+- [example scripts](examples)
 
 Comments, questions, and feedback may be sent to kyle.m.douglass AT
 gmail.com.
