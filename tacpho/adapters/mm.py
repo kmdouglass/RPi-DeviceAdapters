@@ -208,11 +208,11 @@ def main():
     coloredlogs.install(level="DEBUG" if args.debug else "INFO", fmt=fmt)
 
     # Get the Docker client
-    args.client = docker.from_env()
+    client = docker.from_env()
 
     if hasattr(args, "func"):
         try:
-            docker_proc = args.func(args)
+            docker_proc = args.func(client, args)
         except Exception as ex:
             logger.critical("mm.py command failed: {}".format(str(ex)))
             sys.exit(1)
