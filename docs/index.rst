@@ -18,7 +18,7 @@ Micro-Manager device adapters for the Raspberry Pi
 Related pages
 -------------
 
-_ `Zulip Chat`_: Help and discussion about the project
+- `Zulip Chat`_: Help and discussion about the project
 - `RPi-DeviceAdapters`_ : Main project page and source code
 - `rpi-micromanager`_ : The project's Docker images
 - `Micro-Manager`_ : Open-source microscopy software
