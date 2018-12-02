@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/kmdouglass/RPi-DeviceAdapters.svg?branch=master)](https://travis-ci.org/kmdouglass/RPi-DeviceAdapters)
 [![Documentation Status](https://readthedocs.org/projects/rpi-deviceadapters/badge/?version=latest)](https://rpi-deviceadapters.readthedocs.io/en/latest/?badge=latest)
+[![Project Chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://tacpho.zulipchat.com/)
 
 RPi-DeviceAdapters is a tool for controlling microscope hardware with
 the [Raspberry Pi](https://www.raspberrypi.org/). It provides a common
@@ -44,10 +45,11 @@ $ mm.py run script.py
 `mm.py pull` may take several minutes to download the
 application on the first use.
 
-## Documentation
+## Getting help
 
-- https://rpi-deviceadapters.readthedocs.io/en/latest/
-- [example scripts](examples)
+- [Chat](https://tacpho.zulipchat.com/)
+- [Documentation](https://rpi-deviceadapters.readthedocs.io/en/latest/)
+- [Example scripts](examples)
 
 Comments, questions, and feedback may be sent to kyle.m.douglass AT
 gmail.com.
