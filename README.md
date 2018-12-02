@@ -21,6 +21,8 @@ RPi-DeviceAdapters contains the following tools:
   Python wrapper on the Raspberry Pi and that can be easily downloaded
   onto any Pi that has Docker installed on it
 
+In addition, compiled device adapter libraries may be found in the
+[releases](https://github.com/kmdouglass/RPi-DeviceAdapters/releases) page.
 
 ## Quickstart
 
