@@ -28,8 +28,21 @@ script:
   - cd $TRAVIS_BUILD_DIR
   - docker build -f ci/app-tester/Dockerfile -t kmdouglass/rpi-micromanager:app-tester .
   - docker run -it --rm kmdouglass/rpi-micromanager:app-tester
+before_deploy:
+  - VERSION=$(grep -o "\([0-9]\+\.[0-9]\+\.[0-9]\+\)" tacpho/adapters/_version.py)
+  - (cd /opt/rpi-micromanager/build/lib/micro-manager; zip -r RPi-DeviceAdapters-$VERSION.zip *)
 deploy:
-  provider: script
-  script: (cd $TRAVIS_BUILD_DIR/ci/app; make build push)
-  on:
-    branch: master
+  - provider: script
+    script: (cd $TRAVIS_BUILD_DIR/ci/app; make build push)
+    on:
+      branch: master
+  - provider: releases
+    skip_cleanup: true
+    api_key:
+      secure: jYltGV0orWRf8Ij3VbwU/fIam2Jj9EEUP9tuOjq0bJs/9D0+zY38JOmuWFpeoM20SuZ9V0/DbjTNjzAiiu/uVQAgmY61pN7HPiJCUR6NwkfF28/plVGJ3FGQADUWs3nprLLrWow90vPOFIGnVxdK7XgBsBF+hBcu7hxNHtFJYL7CYfLbKG18IWqfhAY9jUZRvEKNvQPail9MG34HnsBu7nvk9rXqmkXTeGICQCcLQ3Bm7cx+uaYOT/BiYMeCZui9PGz7pys1gwFt2hrgJVx6riQXJaELfr0bGbiOg6hxND/70bF8rIMG//ZD/2z8WyVPYyC+DEeWzh/4K706wovKKwaYMn+2d4PQpqSsZYKv25XascWx3cjCWPlh5f+5xTb7tdJn332IfTuYJx7xUYu0j3DdA1d0UtEcRiIBN77w4a4pByZC63cioOtW+XQxSTZMjVMOYm/Knrh3+dbdG9B4Meoa/X7XGq2XOFp3p+BOLmRGJR/ggOLrGgRz95OuOKhiRgO7Mo2jbDMVeBGn7baLojyNFfNlJP3HrV9NUZdc18VGV/gLFnJ2P4jZyyaeB6tKQjDheb05lu6HBhwUGsRgfCXYinNbshqEaejwVdjnoAGBVyY0T6UFR0cnWNHn2B2a0RX0u6jZofmJg40EtehG1LWX3+dcofgMYDfUICTjiDM=
+    file_glob: true
+    file:
+      - /opt/rpi-micromanager/build/lib/micro-manager/RPi-DeviceAdapters-*.zip
+    on:
+      repo: kmdouglass/RPi-DeviceAdapters
+      tags: true
