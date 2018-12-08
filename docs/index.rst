@@ -14,6 +14,7 @@ Micro-Manager device adapters for the Raspberry Pi
 
    user_tutorial
    developer_tutorial
+   troubleshooting
 
 Related pages
 -------------

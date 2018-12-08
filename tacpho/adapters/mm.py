@@ -1,20 +1,49 @@
 #!/usr/bin/env python3
 
 import argparse
-import coloredlogs
-import docker
 import grp
 import logging
 import os
 import sys
 
+import coloredlogs
+import docker
+
 from tacpho.adapters._version import __version__
 
 
 CONTAINER_USERDATA_FOLDER = "/home/micro-manager/app/userdata"
+"""str: The folder from the host that will be mounted into the container.
+
+This value must be sychronized with the ones in the project's Dockerfiles.
+
+"""
+
 DEFAULT_DOCKER_IMAGE = "kmdouglass/rpi-micromanager"
+"""str: The docker image name to use if none is provided.
+
+"""
+
 DEFAULT_DOCKER_TAG = "latest"
+"""str: The Docker image tag to use if none is provided.
+
+"""
+
+GROUP_DEVICES = {
+    "gpio": ["/dev/gpiomem"],
+    "video": ["/dev/video{}".format(x) for x in range(8)],
+}
+"""dict: The mapping of group names to their corresponding peripheral devices.
+
+These values will be filtered before launching a container to remove any devices that are not
+currently present on the system.
+
+"""
+
 OUTPUT_DECODING = "utf-8"
+"""str: The byte-to-string decoding used for displaying a container's log.
+
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +64,32 @@ class MMError(Exception):
     pass
 
 
+def find_devices(device_mapping):
+    """Finds the peripheral devices that are present on the system.
+
+    Parameters
+    ----------
+    device_mapping : dict
+        A dict whose keys are the Unix group names and whose values are lists of the corresponding
+        device files.
+
+    Returns
+    -------
+    dict
+        A dict with the same structure as the input device_mapping, but with values that only
+        include the device files that are actually present on the system. An empty dict is returned
+        if no files are found.
+
+    """
+    filtered_mapping = {}
+    for group, devices in device_mapping.items():
+        device_file_list = [device for device in devices if os.path.exists(device)]
+        if device_file_list:
+            filtered_mapping[group] = device_file_list
+
+    return filtered_mapping
+
+
 def get_group_id(name):
     """Returns the UNIX group id for a given name.
 
@@ -45,7 +100,7 @@ def get_group_id(name):
 
     Returns
     -------
-    : str
+    str
         The group ID corresponding to the given name
 
     """
@@ -99,7 +154,7 @@ def cmd_run(client, args):
 
     Returns
     -------
-    : docker.Container
+    docker.Container
         The Docker container of the application.
 
     """
@@ -111,10 +166,21 @@ def cmd_run(client, args):
     volume = {userdata_path: {"bind": CONTAINER_USERDATA_FOLDER, "mode": "rw"}}
     logger.info("Will mount directory {} into the container.".format(userdata_path))
 
+    # Find the devices that are present on the system and their Unix group IDs
+    device_mapping = find_devices(GROUP_DEVICES)
+    group_ids = [get_group_id(group) for group in device_mapping.keys()]
+    devices = []
+    for device_files in device_mapping.values():
+        devices += [
+            "{dev}:{dev}:rw".format(dev=device_file) for device_file in device_files
+        ]
+    logger.debug("Found these group IDs: {}".format(group_ids))
+    logger.debug("Found these devices: {}".format(devices))
+
     config = {
         "detach": True,
-        "devices": ["/dev/gpiomem:/dev/gpiomem:rw"],
-        "group_add": [get_group_id("gpio")],
+        "devices": devices if devices else None,
+        "group_add": group_ids if group_ids else None,
         "remove": True,
         "tty": True,
         "volumes": volume,
@@ -144,7 +210,7 @@ def parse_cli_args(cli_args):
 
     Returns
     -------
-    : argparse.Namespace
+    argparse.Namespace
         A Namespace object populated with the values of the command line arguments.
 
     """

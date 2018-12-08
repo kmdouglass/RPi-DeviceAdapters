@@ -6,4 +6,5 @@ ACLOCAL_AMFLAGS = -I ../m4
 SUBDIRS = \
 	DemoCamera \
 	RPiGPIO \
-	RPiTutorial
+	RPiTutorial \
+	Video4Linux

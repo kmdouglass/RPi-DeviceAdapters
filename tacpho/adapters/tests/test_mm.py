@@ -2,8 +2,11 @@ import io
 import grp
 import logging
 import random
+import os
+import shutil
 import string
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -23,6 +26,46 @@ class UnitTests(unittest.TestCase):
                 self.script = "script.py"
 
         self.args = Args()
+
+        # Test device folder and create test device files
+        self.test_dir = tempfile.mkdtemp()
+        self.test_devices = {
+            "gpio": [os.path.join(self.test_dir, "gpiomem")],
+            "video": [
+                os.path.join(self.test_dir, "video0"),
+                os.path.join(self.test_dir, "video1"),
+            ],
+        }
+        for group, devices in self.test_devices.items():
+            for device in devices:
+                # Create the empty test device files
+                with open(device, "a"):
+                    pass
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    def test_find_devices(self):
+        device_mapping = {
+            "gpio": [os.path.join(self.test_dir, "gpiomem")],
+            "video": [
+                os.path.join(self.test_dir, "video0"),
+                os.path.join(self.test_dir, "video1"),
+                os.path.join(self.test_dir, "video2"),
+            ],
+            "hdd": [os.path.join(self.test_dir, "hdd1")],
+        }
+        results = mm.find_devices(device_mapping)
+
+        self.assertDictEqual(self.test_devices, results)
+
+    def test_find_devices_no_devices_on_system(self):
+        # Delete all files in the test directory
+        shutil.rmtree(self.test_dir)
+        os.mkdir(self.test_dir)
+        results = mm.find_devices(self.test_devices)
+
+        self.assertDictEqual(results, {})
 
     def test_get_group_id_exits_on_missing_group(self):
         """Get group id should fail to find a non-existent group and exit the script

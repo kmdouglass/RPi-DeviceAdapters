@@ -416,6 +416,7 @@ m4_define([device_adapter_dirs], [m4_strip([
    DemoCamera
    RPiGPIO
    RPiTutorial
+   Video4Linux
 ])])
 
 AC_CONFIG_FILES(Makefile m4_map_args_w(device_adapter_dirs, [], [/Makefile], [ ]))
