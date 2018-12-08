@@ -12,14 +12,16 @@ package widely used in microscopy.
 
 RPi-DeviceAdapters contains the following tools:
 
-- **[DeviceAdapters](src/DeviceAdapters)** Ready-made
-  Micro-Manager device adapters for various hardware peripherals
-- **[build](ci/build)** A Docker image for cross-compiling
-  Micro-Manager for the Raspberry Pi's ARM processors on a x86 laptop
-  or workstation
-- **[app](ci/app)** A Docker image for running the Micro-Manager
-  Python wrapper on the Raspberry Pi and that can be easily downloaded
+- **[DeviceAdapters](https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/src/DeviceAdapters)**
+  Ready-made Micro-Manager device adapters for various hardware peripherals
+- **[build](https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/ci/build)** A Docker image
+  for cross-compiling Micro-Manager for the Raspberry Pi's ARM processors on a x86 laptop or
+  workstation
+- **[app](https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/ci/app)** A Docker image for
+  running the Micro-Manager Python wrapper on the Raspberry Pi and that can be easily downloaded
   onto any Pi that has Docker installed on it
+- **[tacpho.adapters](https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/tacpho/adapters)**
+  A Python package for easily working with the project's Docker images on the Raspberry Pi
 
 In addition, compiled device adapter libraries may be found in the
 [releases](https://github.com/kmdouglass/RPi-DeviceAdapters/releases) page.
@@ -51,10 +53,9 @@ application on the first use.
 
 - [Chat](https://tacpho.zulipchat.com/)
 - [Documentation](https://rpi-deviceadapters.readthedocs.io/en/latest/)
-- [Example scripts](examples)
+- [Example scripts](https://github.com/kmdouglass/RPi-DeviceAdapters/tree/master/examples)
 
-Comments, questions, and feedback may be sent to kyle.m.douglass AT
-gmail.com.
+Comments, questions, and feedback may be posted in the Zulip chat room.
 
 ## Related pages
 
