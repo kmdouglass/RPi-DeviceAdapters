@@ -7,4 +7,5 @@ SUBDIRS = \
 	DemoCamera \
 	RPiGPIO \
 	RPiTutorial \
+	RPiV4L2 \
 	Video4Linux

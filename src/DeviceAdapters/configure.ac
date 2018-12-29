@@ -416,6 +416,7 @@ m4_define([device_adapter_dirs], [m4_strip([
    DemoCamera
    RPiGPIO
    RPiTutorial
+   RPiV4L2
    Video4Linux
 ])])
 
