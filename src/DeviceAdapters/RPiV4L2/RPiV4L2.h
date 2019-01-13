@@ -22,6 +22,8 @@
 #define _RPiV4L2_H_
 
 #include <linux/videodev2.h>
+#include <string>
+#include <vector>
 
 #include "DeviceBase.h"
 
@@ -56,6 +58,7 @@ public:
 
   // Action handlers
   int OnBinning(MM::PropertyBase* pProp, MM::ActionType eAct);
+  int OnDevice(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnGain(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnPixelType(MM::PropertyBase* pProp, MM::ActionType eAct);
@@ -64,10 +67,18 @@ public:
   bool VideoInit(State *state);
 
 private:
+  void FindVideoDeviceFiles(std::vector<std::string> &devices);
+  std::string current_device_;
+  std::vector<std::string> devices_;
+
   // MM API
   bool initialized_;
 
-  // Other
+  // Error codes
+  const int ERR_NO_VIDEO_DEVICE_FILES = 101; // Specific error when no /dev/video* files exist
+  const int ERR_DEVICE_CHANGE_FORBIDDEN = 102; // Cannot change /dev file after initialization
+
+  // Refactor
   State state[1];
   unsigned char *image;
 };

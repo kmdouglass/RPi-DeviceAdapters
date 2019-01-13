@@ -18,6 +18,12 @@
 //                CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 //                INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 
+#define BOOST_FILESYSTEM_NO_DEPRECATED
+
+#include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
+#include <boost/system/error_code.hpp>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <math.h>
@@ -44,8 +50,8 @@
 using namespace std;
 
 const char
-  *g_DeviceName="Video4Linux2",
-  *g_Description="video4linux2 camera device adapter";
+  *g_DeviceName="RPiV4L2",
+  *g_Description="Rasperry Pi Video4Linux2 camera device adapter";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Exported MMDevice API
@@ -78,10 +84,34 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
 // RPiV4L2 implementation
 // ~~~~~~~~~~~~~~~~~~~~~~
 
+/**
+ * Constructor
+ *
+ */
 RPiV4L2::RPiV4L2() :
+  devices_ {},
   initialized_ (0),
   image (nullptr)
-{
+  {
+  SetErrorText(ERR_NO_VIDEO_DEVICE_FILES, "No video device files present on the system.");
+  SetErrorText(ERR_DEVICE_CHANGE_FORBIDDEN, "Cannot change video device after initialization.");
+  InitializeDefaultErrorMessages();
+
+  // Video device files; do not continue if none can be found.
+  FindVideoDeviceFiles(devices_);
+
+  if ( !devices_.empty() ) {
+    CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnDevice);
+    CreateStringProperty("Video Device", devices_[0].c_str(), false, pAct, true); // PreInit prop
+    for (const auto &device: devices_) {
+      AddAllowedValue("Video Device", device.c_str());
+    }
+  }
+  else {
+    LogMessage("No video device files found.");
+  }
+
+  // Refactor
   state->W = gWidth;
   state->H = gHeight;
 }
@@ -101,8 +131,11 @@ void RPiV4L2::GetName(char*name) const
 
 int RPiV4L2::Initialize()
 {
-  if (initialized_)
+  if ( initialized_ )
     return DEVICE_OK;
+
+  if ( devices_.empty() )
+    return ERR_NO_VIDEO_DEVICE_FILES;
 
   CreateProperty(MM::g_Keyword_Name,g_DeviceName, MM::String, true);
   CreateProperty(MM::g_Keyword_Description, g_Description, MM::String, true);
@@ -122,12 +155,14 @@ int RPiV4L2::Initialize()
   // Gain
   pAct = new CPropertyAction (this, &RPiV4L2::OnGain);
   nRet = CreateProperty(MM::g_Keyword_Gain, "0", MM::Integer, false, pAct);
-  assert(nRet == DEVICE_OK);
+  if (nRet != DEVICE_OK)
+    return nRet;
   
   // Exposure
   pAct = new CPropertyAction (this, &RPiV4L2::OnExposure);
   nRet = CreateProperty(MM::g_Keyword_Exposure, "0.0", MM::Float, false, pAct);
-  assert(nRet == DEVICE_OK);
+  if (nRet != DEVICE_OK)
+    return nRet;
     
   image = (unsigned char*) malloc(state->W * state->H);
   if (VideoInit(state))
@@ -140,7 +175,6 @@ int RPiV4L2::Initialize()
     initialized_=false;
     return DEVICE_ERR;
   }
-  //VideoRunThread(state,image);
 }
 
 int RPiV4L2::Shutdown()
@@ -156,6 +190,39 @@ int RPiV4L2::Shutdown()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Action handlers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+int RPiV4L2::OnBinning(MM::PropertyBase* pProp, MM::ActionType eAct)
+{
+  if (eAct == MM::BeforeGet)
+  {
+    //on_binning(); // FIXME
+  }
+  else if (eAct == MM::AfterSet)
+  {
+  }
+  return DEVICE_OK;
+}
+
+int RPiV4L2::OnDevice(MM::PropertyBase* pProp, MM::ActionType eAct)
+{
+
+  if (eAct == MM::BeforeGet)
+  {
+    pProp->Set(current_device_.c_str());
+  }
+  else if (eAct == MM::AfterSet)
+  {
+    if ( initialized_ ) {
+      // Revert the device
+      pProp->Set(current_device_.c_str());
+      LogMessage("Cannot change video device after device has been initialiezd.");
+      return ERR_DEVICE_CHANGE_FORBIDDEN;
+    }
+    pProp->Get(current_device_);
+
+  }
+  return DEVICE_OK;
+}
+
 int RPiV4L2::OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   if (eAct == MM::BeforeGet)
@@ -172,18 +239,6 @@ int RPiV4L2::OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct)
     return DEVICE_OK;
   }
 
-int RPiV4L2::OnBinning(MM::PropertyBase* pProp, MM::ActionType eAct)
-{
-  if (eAct == MM::BeforeGet)
-  {
-    //on_binning(); // FIXME
-  }
-  else if (eAct == MM::AfterSet)
-  {
-  }
-  return DEVICE_OK;
-}
-  
 int RPiV4L2::OnPixelType(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   return DEVICE_OK;
@@ -203,6 +258,14 @@ int RPiV4L2::OnGain(MM::PropertyBase* pProp, MM::ActionType eAct)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * TODO: implement
+ */
+bool RPiV4L2::Busy() {
+  return false;
+}
+
 /**
  * TODO: implement if possible
  */
@@ -214,8 +277,7 @@ int RPiV4L2::IsExposureSequenceable(bool& isSequenceable) const
 
 bool RPiV4L2::VideoInit(State*state)
 {
-  state->fd = open("/dev/video0", O_RDWR);
-  //// this should probably be a property
+  state->fd = open(current_device_.c_str(), O_RDWR);
 
   if (-1 == state-> fd)
   {
@@ -396,4 +458,34 @@ int RPiV4L2::ClearROI()
   // FIXME
   //clear_roi();
   return DEVICE_OK;
+}
+
+/**
+ * Find all the video device files present on the system.
+ *
+ */
+void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
+  const boost::filesystem::path DEVICE_FOLDER("/dev");
+  const boost::regex VIDEO_DEV_FILTER("^/dev/video\\d+$");
+
+  boost::system::error_code ec;
+  if ( boost::filesystem::exists(DEVICE_FOLDER, ec) ) {
+
+    if ( ec != 0 ) return;
+
+    // Loop over all files in the directory
+    std::string current_file;
+    boost::filesystem::directory_iterator it{DEVICE_FOLDER};
+    for (const boost::filesystem::directory_entry &entry : it) {
+
+      // Skip if it doesn't match the video device filter regex
+      if ( !boost::regex_match( entry.path().string(), VIDEO_DEV_FILTER ) ) continue;
+
+      // Found a match; add it to the vector
+      current_file = boost::filesystem::canonical(entry.path(), ec).string();
+
+      if ( ec != 0) continue;
+      devices.push_back(current_file);
+    }
+  }
 }

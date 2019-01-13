@@ -1,4 +1,4 @@
-AM_CXXFLAGS = $(MMDEVAPI_CXXFLAGS)
+AM_CXXFLAGS = $(MMDEVAPI_CXXFLAGS) -std=c++11
 deviceadapter_LTLIBRARIES = libmmgr_dal_RPiGPIO.la
 libmmgr_dal_RPiGPIO_la_SOURCES = RPiGPIO.cpp RPiGPIO.h gpio.c gpio.h \
    ../../MMDevice/MMDevice.h ../../MMDevice/DeviceBase.h
