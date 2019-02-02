@@ -61,7 +61,9 @@ public:
   int OnDevice(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnGain(MM::PropertyBase* pProp, MM::ActionType eAct);
+  int OnHeight(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnPixelType(MM::PropertyBase* pProp, MM::ActionType eAct);
+  int OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct);
 
   // Constants
   static const unsigned int MAX_HEIGHT = 32768;
@@ -72,17 +74,17 @@ public:
 
 private:
   void FindVideoDeviceFiles(std::vector<std::string> &devices);
+  void GenerateReadOnlyProperties();
   void GetVideoDeviceFormatDescription();
   int OpenVideoDevice();
-  int SetVideoDeviceFormat();
+  int SetVideoDeviceFormat(unsigned int width, unsigned int height);
   static int xioctl(int fd, int request, void *arg);
 
   std::string current_device_;              // The current device managed by this device adapter
   std::vector< std::string > devices_;      // A list of devices found on the system
   int fd_;                                  // File descriptor for the video device
+  struct v4l2_format fmt_;                  // The current capture format
   std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
-  unsigned int height_;                     // The current height of the image
-  unsigned int width_;                      // The current width of the image
 
   // MM API
   bool initialized_;

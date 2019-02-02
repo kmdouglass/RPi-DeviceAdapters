@@ -91,11 +91,10 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
 RPiV4L2::RPiV4L2() :
   devices_ {},
   fd_ (-1),
+  fmt_ {0},
   fmtdescs_ {},
-  height_ (RPiV4L2::MAX_HEIGHT),
   initialized_ (0),
-  image (nullptr),
-  width_ (RPiV4L2::MAX_WIDTH)
+  image (nullptr)
   {
   SetErrorText(ERR_NO_VIDEO_DEVICE_FILES, "No video device files present on the system.");
   SetErrorText(ERR_DEVICE_CHANGE_FORBIDDEN, "Cannot change video device after initialization.");
@@ -141,8 +140,11 @@ int RPiV4L2::Initialize()
   if ( devices_.empty() )
     return ERR_NO_VIDEO_DEVICE_FILES;
 
+  // Property generators
   CreateProperty(MM::g_Keyword_Name,g_DeviceName, MM::String, true);
   CreateProperty(MM::g_Keyword_Description, g_Description, MM::String, true);
+
+  GenerateReadOnlyProperties();
 
   // Binning
   CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnBinning);
@@ -175,7 +177,7 @@ int RPiV4L2::Initialize()
 
   GetVideoDeviceFormatDescription();
 
-  nRet = SetVideoDeviceFormat();
+  nRet = SetVideoDeviceFormat(MAX_WIDTH, MAX_HEIGHT);
   if ( nRet != DEVICE_OK )
     return nRet;
 
@@ -194,10 +196,26 @@ int RPiV4L2::Shutdown()
 
   return DEVICE_OK;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Property Generators
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RPiV4L2::GenerateReadOnlyProperties()
+{
+  // Height of the image in pixels
+  CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnHeight);
+  CreateIntegerProperty("Height", static_cast< long >(MAX_HEIGHT), true, pAct);
+
+  // Width of the image in pixels
+  pAct = new CPropertyAction(this, &RPiV4L2::OnWidth);
+  CreateIntegerProperty("Width", static_cast< long >(MAX_WIDTH), true, pAct);
+}
   
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Action handlers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
 int RPiV4L2::OnBinning(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   if (eAct == MM::BeforeGet)
@@ -233,33 +251,60 @@ int RPiV4L2::OnDevice(MM::PropertyBase* pProp, MM::ActionType eAct)
 
 int RPiV4L2::OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
-  if (eAct == MM::BeforeGet)
+  if ( eAct == MM::BeforeGet )
   {
     //pProp->Set(get_exposure()); // FIXME
     //on_exposure();
   }
-  else if (eAct == MM::AfterSet)
+  else if ( eAct == MM::AfterSet )
   {
     double exp;
     pProp->Get(exp);
     //set_exposure(exp); // FIXME
   }
     return DEVICE_OK;
+}
+
+int RPiV4L2::OnGain(MM::PropertyBase* pProp, MM::ActionType eAct)
+{
+  if ( eAct == MM::BeforeGet )
+  {
+    //on_gain(); // FIXME
   }
+  else if( eAct == MM::AfterSet )
+  {
+  }
+  return DEVICE_OK;
+}
+
+/**
+ * Image height in pixels
+ */
+int RPiV4L2::OnHeight(MM::PropertyBase* pProp, MM::ActionType eAct)
+{
+  if ( eAct == MM::BeforeGet )
+  {
+    pProp->Set( static_cast< long >(fmt_.fmt.pix.height) );
+  }
+
+  return DEVICE_OK;
+}
 
 int RPiV4L2::OnPixelType(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   return DEVICE_OK;
 }
 
-int RPiV4L2::OnGain(MM::PropertyBase* pProp, MM::ActionType eAct)
+/**
+ * Image width in pixels
+ */
+int RPiV4L2::OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
-  if (eAct == MM::BeforeGet){
-    //on_gain(); // FIXME
-  }
-  else if(eAct == MM::AfterSet)
+  if ( eAct == MM::BeforeGet )
   {
+    pProp->Set( static_cast< long >(fmt_.fmt.pix.width) );
   }
+
   return DEVICE_OK;
 }
 
@@ -380,10 +425,7 @@ int RPiV4L2::GetROI(unsigned &x, unsigned &y, unsigned&xSize, unsigned &ySize)
 int RPiV4L2::ClearROI()
 {
   // V4L2 should automatically handle adjust heights/widths that are too large.
-  height_ = MAX_HEIGHT;
-  width_ = MAX_WIDTH;
-
-  return SetVideoDeviceFormat(); // TODO Change this so that only the size is changed
+  return SetVideoDeviceFormat(MAX_WIDTH, MAX_HEIGHT); // TODO Change this so that only the size is changed
 }
 
 /**
@@ -449,34 +491,34 @@ void RPiV4L2::GetVideoDeviceFormatDescription() {
  *
  * TODO FINISH ME
  */
-int RPiV4L2::SetVideoDeviceFormat() {
+int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
   struct v4l2_fmtdesc fmtdesc = fmtdescs_.back(); // TODO Make this settable
-  struct v4l2_format fmt = {0};
-  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  fmt_ = {0};
+  fmt_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  fmt.fmt.pix.width = width_;
-  fmt.fmt.pix.height = height_;
-  fmt.fmt.pix.pixelformat = fmtdesc.pixelformat;
-  fmt.fmt.pix.field = V4L2_FIELD_NONE;
+  fmt_.fmt.pix.width = width;
+  fmt_.fmt.pix.height = height;
+  fmt_.fmt.pix.pixelformat = fmtdesc.pixelformat;
+  fmt_.fmt.pix.field = V4L2_FIELD_NONE;
 
-  if (-1 == xioctl(fd_, VIDIOC_S_FMT, &fmt)) {
+  if (-1 == xioctl(fd_, VIDIOC_S_FMT, &fmt_)) {
     LogMessage("ioctl error: VIDIOC_S_FMT");
     return DEVICE_ERR;
   }
 
   printf("\nUsing format: %s\n", fmtdesc.description);
   char format_code[5];
-  strncpy(format_code, (char*)&fmt.fmt.pix.pixelformat, 5);
+  strncpy(format_code, (char*)&fmt_.fmt.pix.pixelformat, 5);
   printf(
     "Set format:\n"
     " Width: %d\n"
     " Height: %d\n"
     " Pixel format: %s\n"
     " Field: %d\n\n",
-    fmt.fmt.pix.width,
-    fmt.fmt.pix.height,
+    fmt_.fmt.pix.width,
+    fmt_.fmt.pix.height,
     format_code,
-    fmt.fmt.pix.field
+    fmt_.fmt.pix.field
   );
 
   // TODO Setup the mmap here or in a new method
