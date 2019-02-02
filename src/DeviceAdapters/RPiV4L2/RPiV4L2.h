@@ -67,9 +67,11 @@ public:
   bool VideoInit(State *state);
 
 private:
+  int OpenVideoDevice();
   void FindVideoDeviceFiles(std::vector<std::string> &devices);
   std::string current_device_;
   std::vector<std::string> devices_;
+  int fd_; // File descriptor for the video device
 
   // MM API
   bool initialized_;

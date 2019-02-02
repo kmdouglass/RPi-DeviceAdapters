@@ -90,6 +90,7 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
  */
 RPiV4L2::RPiV4L2() :
   devices_ {},
+  fd_ (-1),
   initialized_ (0),
   image (nullptr)
   {
@@ -163,24 +164,22 @@ int RPiV4L2::Initialize()
   nRet = CreateProperty(MM::g_Keyword_Exposure, "0.0", MM::Float, false, pAct);
   if (nRet != DEVICE_OK)
     return nRet;
-    
-  image = (unsigned char*) malloc(state->W * state->H);
-  if (VideoInit(state))
-  {
-    initialized_=true;
-    return DEVICE_OK;
-  }
-  else
-  {
-    initialized_=false;
-    return DEVICE_ERR;
-  }
+
+  // Intialize video devices
+  nRet = OpenVideoDevice();
+  if (nRet != DEVICE_OK)
+    return nRet;
+
+  initialized_ = true;
+
+  return DEVICE_OK;
+
 }
 
 int RPiV4L2::Shutdown()
 {
   if(initialized_)
-    VideoClose(state);
+    close(fd_);
 
   initialized_ = false;
 
@@ -273,90 +272,6 @@ int RPiV4L2::IsExposureSequenceable(bool& isSequenceable) const
 {
    isSequenceable = false; 
    return DEVICE_OK;
-}
-
-bool RPiV4L2::VideoInit(State*state)
-{
-  state->fd = open(current_device_.c_str(), O_RDWR);
-
-  if (-1 == state-> fd)
-  {
-    LogMessage("v4l2: could not open the video device");
-    return false;
-  }
-
-  sleep(3); // let it settle; there is probably an ioctl for this
-
-  state->buf=(struct v4l2_buffer*) malloc(sizeof(struct v4l2_buffer));
-
-  struct v4l2_format format; 
-  memset(&format,0,sizeof(format));
-  format.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  format.fmt.pix.width=state->W;
-  format.fmt.pix.height=state->H;
-  format.fmt.pix.pixelformat=V4L2_PIX_FMT_YUYV;
-  if(-1==ioctl(state->fd,VIDIOC_S_FMT,&format))
-    {
-    LogMessage("v4l2: could not set YUYV format");
-    return false;
-    }
-
-  state->W=format.fmt.pix.width;
-  state->H=format.fmt.pix.height;
-  //printf("size %dx%d\n",format.fmt.pix.width,format.fmt.pix.height);
- 
-  struct v4l2_requestbuffers reqbuf;
-  memset(&reqbuf,0,sizeof(reqbuf));
-  reqbuf.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  reqbuf.memory=V4L2_MEMORY_MMAP;
-  reqbuf.count=4;
-  assert(-1!=ioctl(state->fd,VIDIOC_REQBUFS,&reqbuf));
-  //printf("number of buffers: %d\n",reqbuf.count);
- 
-  state->buffers=(struct VidBuffer*)calloc(reqbuf.count,sizeof(*(state->buffers)));
-  if(!state->buffers)
-    {
-    LogMessage("v4l2: could not allocate buffer(s)");
-    return false;
-    }
-  unsigned int i;
-  for(i=0;i<reqbuf.count;i++){
-    struct v4l2_buffer buf;
-    memset(&buf,0,sizeof(buf));
- 
-    buf.type=reqbuf.type;
-    buf.memory=V4L2_MEMORY_MMAP;
-    buf.index=i;
-    if(-1==ioctl(state->fd,VIDIOC_QUERYBUF,&buf))
-      {
-      LogMessage("v4l2: could not query the buffer state");
-      return false;
-      }
- 
-    state->buffers[i].length=buf.length; // remember for munmap
-    state->buffers[i].start=mmap(NULL,buf.length,
-			  PROT_READ|PROT_WRITE,
-			  MAP_SHARED,state->fd,buf.m.offset);
-    if(state->buffers[i].start==MAP_FAILED)
-      {
-      LogMessage("v4l2: memory map failed");
-      return false;
-      }
- 
-    if(-1==ioctl(state->fd,VIDIOC_QBUF,&buf))
-      {
-      LogMessage("v4l2: could not enqueue buffer");
-      return false;
-      }
-  }
-  state->buffers_count=reqbuf.count;
-  int type=V4L2_BUF_TYPE_VIDEO_CAPTURE; 
-  if(-1 == ioctl(state->fd, VIDIOC_STREAMON, &type))
-  {
-    LogMessage("v4l2: could not initialize stream");
-    return false;
-  }
-  return true;
 }
 
 // blocks until exposure is finished
@@ -488,4 +403,18 @@ void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
       devices.push_back(current_file);
     }
   }
+}
+
+/**
+ * Opens the video device file for ioctl.
+ */
+int RPiV4L2::OpenVideoDevice() {
+  fd_ = open(current_device_.c_str(), O_RDWR | O_NONBLOCK);
+
+  if ( fd_ < 0 ) {
+    LogMessage("Failed to obtain video device file descriptor.");
+    return DEVICE_ERR;
+  }
+
+  return DEVICE_OK;
 }
