@@ -1,5 +1,5 @@
 /**
- * Kyle M. Douglass, 2018
+ * Kyle M. Douglass, 2019
  * kyle.m.douglass@gmail.com
  *
  * Micro-Manager device adapter for a Video 4 Linux version 2 device.
@@ -91,8 +91,11 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
 RPiV4L2::RPiV4L2() :
   devices_ {},
   fd_ (-1),
+  fmtdescs_ {},
+  height_ (RPiV4L2::MAX_HEIGHT),
   initialized_ (0),
-  image (nullptr)
+  image (nullptr),
+  width_ (RPiV4L2::MAX_WIDTH)
   {
   SetErrorText(ERR_NO_VIDEO_DEVICE_FILES, "No video device files present on the system.");
   SetErrorText(ERR_DEVICE_CHANGE_FORBIDDEN, "Cannot change video device after initialization.");
@@ -168,6 +171,12 @@ int RPiV4L2::Initialize()
   // Intialize video devices
   nRet = OpenVideoDevice();
   if (nRet != DEVICE_OK)
+    return nRet;
+
+  GetVideoDeviceFormatDescription();
+
+  nRet = SetVideoDeviceFormat();
+  if ( nRet != DEVICE_OK )
     return nRet;
 
   initialized_ = true;
@@ -370,9 +379,11 @@ int RPiV4L2::GetROI(unsigned &x, unsigned &y, unsigned&xSize, unsigned &ySize)
 
 int RPiV4L2::ClearROI()
 {
-  // FIXME
-  //clear_roi();
-  return DEVICE_OK;
+  // V4L2 should automatically handle adjust heights/widths that are too large.
+  height_ = MAX_HEIGHT;
+  width_ = MAX_WIDTH;
+
+  return SetVideoDeviceFormat(); // TODO Change this so that only the size is changed
 }
 
 /**
@@ -417,4 +428,71 @@ int RPiV4L2::OpenVideoDevice() {
   }
 
   return DEVICE_OK;
+}
+
+/**
+ * Query the device for its possible format descriptions.
+ */
+void RPiV4L2::GetVideoDeviceFormatDescription() {
+  struct v4l2_fmtdesc fmtdesc = {0};
+  fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  // Get the format with the largest index and use it
+  while(0 == xioctl(fd_, VIDIOC_ENUM_FMT, &fmtdesc)) {
+    fmtdescs_.push_back(fmtdesc);
+    fmtdesc.index++;
+  }
+}
+
+/**
+ * Set the device's format, including its width, height, and pixel format.
+ *
+ * TODO FINISH ME
+ */
+int RPiV4L2::SetVideoDeviceFormat() {
+  struct v4l2_fmtdesc fmtdesc = fmtdescs_.back(); // TODO Make this settable
+  struct v4l2_format fmt = {0};
+  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  fmt.fmt.pix.width = width_;
+  fmt.fmt.pix.height = height_;
+  fmt.fmt.pix.pixelformat = fmtdesc.pixelformat;
+  fmt.fmt.pix.field = V4L2_FIELD_NONE;
+
+  if (-1 == xioctl(fd_, VIDIOC_S_FMT, &fmt)) {
+    LogMessage("ioctl error: VIDIOC_S_FMT");
+    return DEVICE_ERR;
+  }
+
+  printf("\nUsing format: %s\n", fmtdesc.description);
+  char format_code[5];
+  strncpy(format_code, (char*)&fmt.fmt.pix.pixelformat, 5);
+  printf(
+    "Set format:\n"
+    " Width: %d\n"
+    " Height: %d\n"
+    " Pixel format: %s\n"
+    " Field: %d\n\n",
+    fmt.fmt.pix.width,
+    fmt.fmt.pix.height,
+    format_code,
+    fmt.fmt.pix.field
+  );
+
+  // TODO Setup the mmap here or in a new method
+
+  return DEVICE_OK;
+}
+
+/**
+ * Wrapper around ioctl system call for error handling.
+ */
+int RPiV4L2::xioctl(int fd, int request, void *arg) {
+  int r;
+
+  do {
+    r = ioctl(fd, request, arg);
+  } while (-1 == r && EINTR == errno);
+
+  return r;
 }

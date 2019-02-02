@@ -1,5 +1,5 @@
 /**
- * Kyle M. Douglass, 2018
+ * Kyle M. Douglass, 2019
  * kyle.m.douglass@gmail.com
  *
  * Micro-Manager device adapter for a Video 4 Linux version 2 device.
@@ -63,24 +63,35 @@ public:
   int OnGain(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnPixelType(MM::PropertyBase* pProp, MM::ActionType eAct);
 
-  // Other
+  // Constants
+  static const unsigned int MAX_HEIGHT = 32768;
+  static const unsigned int MAX_WIDTH = 32768;
+
+  // TODO: Remove after refactor
   bool VideoInit(State *state);
 
 private:
-  int OpenVideoDevice();
   void FindVideoDeviceFiles(std::vector<std::string> &devices);
-  std::string current_device_;
-  std::vector<std::string> devices_;
-  int fd_; // File descriptor for the video device
+  void GetVideoDeviceFormatDescription();
+  int OpenVideoDevice();
+  int SetVideoDeviceFormat();
+  static int xioctl(int fd, int request, void *arg);
+
+  std::string current_device_;              // The current device managed by this device adapter
+  std::vector< std::string > devices_;      // A list of devices found on the system
+  int fd_;                                  // File descriptor for the video device
+  std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
+  unsigned int height_;                     // The current height of the image
+  unsigned int width_;                      // The current width of the image
 
   // MM API
   bool initialized_;
 
   // Error codes
-  const int ERR_NO_VIDEO_DEVICE_FILES = 101; // Specific error when no /dev/video* files exist
+  const int ERR_NO_VIDEO_DEVICE_FILES = 101;   // No /dev/video* files exist
   const int ERR_DEVICE_CHANGE_FORBIDDEN = 102; // Cannot change /dev file after initialization
 
-  // Refactor
+  // TODO: Remove after refactor
   State state[1];
   unsigned char *image;
 };
