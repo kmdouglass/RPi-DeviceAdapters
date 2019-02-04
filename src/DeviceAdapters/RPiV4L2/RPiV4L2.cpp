@@ -203,8 +203,16 @@ int RPiV4L2::Shutdown()
 
 void RPiV4L2::GenerateReadOnlyProperties()
 {
+  // Pixel format flags (compressed/emulated
+  CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnFormatFlags);
+  CreateStringProperty("Format Flags", "", true, pAct);
+
+  // Pixel format description
+  pAct = new CPropertyAction(this, &RPiV4L2::OnFormatDescription);
+  CreateStringProperty("Format Description", "", true, pAct);
+
   // Height of the image in pixels
-  CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnHeight);
+  pAct = new CPropertyAction(this, &RPiV4L2::OnHeight);
   CreateIntegerProperty("Height", static_cast< long >(MAX_HEIGHT), true, pAct);
 
   // Width of the image in pixels
@@ -263,6 +271,35 @@ int RPiV4L2::OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct)
     //set_exposure(exp); // FIXME
   }
     return DEVICE_OK;
+}
+
+int RPiV4L2::OnFormatFlags(MM::PropertyBase* pProp,MM::ActionType eAct)
+{
+  std::string c, e, combined;
+
+  if ( eAct == MM::BeforeGet )
+  {
+    // TODO Make fmtdescs settable
+    struct v4l2_fmtdesc fmtdesc = fmtdescs_.back();
+    c = fmtdesc.flags & 1 ? "C" : " ";
+    e = fmtdesc.flags & 2 ? "E" : " ";
+    combined = c + e;
+    pProp->Set( combined.c_str() );
+  }
+
+  return DEVICE_OK;
+}
+
+int RPiV4L2::OnFormatDescription(MM::PropertyBase* pProp,MM::ActionType eAct)
+{
+  if ( eAct == MM::BeforeGet )
+  {
+    // TODO Make fmtdescs settable
+    std::string descr = reinterpret_cast< char* >( fmtdescs_.back().description );
+    pProp->Set( descr.c_str() );
+  }
+
+  return DEVICE_OK;
 }
 
 int RPiV4L2::OnGain(MM::PropertyBase* pProp, MM::ActionType eAct)
