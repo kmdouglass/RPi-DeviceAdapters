@@ -60,6 +60,7 @@ public:
   int OnBinning(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnDevice(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct);
+  int OnField(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnFormatDescription(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnFormatFlags(MM::PropertyBase* pProp, MM::ActionType eAct);
   int OnGain(MM::PropertyBase* pProp, MM::ActionType eAct);
@@ -68,6 +69,7 @@ public:
   int OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct);
 
   // Constants
+  static const __u32 FIELD = V4L2_FIELD_NONE;   // TODO Make this settable
   static const unsigned int MAX_HEIGHT = 32768;
   static const unsigned int MAX_WIDTH = 32768;
 

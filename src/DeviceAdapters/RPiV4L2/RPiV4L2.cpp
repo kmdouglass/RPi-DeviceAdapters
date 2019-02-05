@@ -204,7 +204,11 @@ int RPiV4L2::Shutdown()
 void RPiV4L2::GenerateReadOnlyProperties()
 {
   // Pixel format flags (compressed/emulated
-  CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnFormatFlags);
+  CPropertyAction* pAct = new CPropertyAction(this, &RPiV4L2::OnField);
+  CreateIntegerProperty("Field", static_cast< long >( FIELD ), true, pAct);
+
+  // Pixel format flags (compressed/emulated
+  pAct = new CPropertyAction(this, &RPiV4L2::OnFormatFlags);
   CreateStringProperty("Format Flags", "", true, pAct);
 
   // Pixel format description
@@ -213,11 +217,11 @@ void RPiV4L2::GenerateReadOnlyProperties()
 
   // Height of the image in pixels
   pAct = new CPropertyAction(this, &RPiV4L2::OnHeight);
-  CreateIntegerProperty("Height", static_cast< long >(MAX_HEIGHT), true, pAct);
+  CreateIntegerProperty("Height", static_cast< long >( MAX_HEIGHT ), true, pAct);
 
   // Width of the image in pixels
   pAct = new CPropertyAction(this, &RPiV4L2::OnWidth);
-  CreateIntegerProperty("Width", static_cast< long >(MAX_WIDTH), true, pAct);
+  CreateIntegerProperty("Width", static_cast< long >( MAX_WIDTH ), true, pAct);
 }
   
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -271,6 +275,16 @@ int RPiV4L2::OnExposure(MM::PropertyBase* pProp, MM::ActionType eAct)
     //set_exposure(exp); // FIXME
   }
     return DEVICE_OK;
+}
+
+int RPiV4L2::OnField(MM::PropertyBase* pProp,MM::ActionType eAct)
+{
+  if ( eAct == MM::BeforeGet )
+  {
+    pProp->Set( static_cast < long > ( fmt_.fmt.pix.field ));
+  }
+
+  return DEVICE_OK;
 }
 
 int RPiV4L2::OnFormatFlags(MM::PropertyBase* pProp,MM::ActionType eAct)
@@ -536,27 +550,12 @@ int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
   fmt_.fmt.pix.width = width;
   fmt_.fmt.pix.height = height;
   fmt_.fmt.pix.pixelformat = fmtdesc.pixelformat;
-  fmt_.fmt.pix.field = V4L2_FIELD_NONE;
+  fmt_.fmt.pix.field = FIELD;
 
   if (-1 == xioctl(fd_, VIDIOC_S_FMT, &fmt_)) {
     LogMessage("ioctl error: VIDIOC_S_FMT");
     return DEVICE_ERR;
   }
-
-  printf("\nUsing format: %s\n", fmtdesc.description);
-  char format_code[5];
-  strncpy(format_code, (char*)&fmt_.fmt.pix.pixelformat, 5);
-  printf(
-    "Set format:\n"
-    " Width: %d\n"
-    " Height: %d\n"
-    " Pixel format: %s\n"
-    " Field: %d\n\n",
-    fmt_.fmt.pix.width,
-    fmt_.fmt.pix.height,
-    format_code,
-    fmt_.fmt.pix.field
-  );
 
   // TODO Setup the mmap here or in a new method
 
