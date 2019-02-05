@@ -89,12 +89,15 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
  *
  */
 RPiV4L2::RPiV4L2() :
+  buffers_ (nullptr),
   devices_ {},
   fd_ (-1),
   fmt_ {0},
   fmtdescs_ {},
   initialized_ (0),
-  image (nullptr)
+  image (nullptr),
+  num_buffers_ (0),
+  reqbuf_ {0}
   {
   SetErrorText(ERR_NO_VIDEO_DEVICE_FILES, "No video device files present on the system.");
   SetErrorText(ERR_DEVICE_CHANGE_FORBIDDEN, "Cannot change video device after initialization.");
@@ -190,6 +193,12 @@ int RPiV4L2::Initialize()
 int RPiV4L2::Shutdown()
 {
   if(initialized_)
+    // Free the memory-mapped image buffers
+    for (unsigned int i = 0; i < reqbuf_.count; i++)
+      munmap(buffers_[i].start, buffers_[i].length);
+
+    free(buffers_);
+    buffers_ = nullptr;
     close(fd_);
 
   initialized_ = false;
@@ -507,6 +516,62 @@ void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
       devices.push_back(current_file);
     }
   }
+}
+
+/**
+ * Initialize the memory map to the video buffers.
+ */
+int RPiV4L2::InitMMAP() {
+  reqbuf_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  reqbuf_.memory = V4L2_MEMORY_MMAP;
+  reqbuf_.count = 5; // TODO Make this settable
+
+  if (-1 == xioctl(fd_, VIDIOC_REQBUFS, &reqbuf_)) {
+    LogMessage("VIDIOC_REQBUFS failed");
+    return DEVICE_ERR; // TODO Custom error message
+  }
+
+  if (reqbuf_.count < 2){
+    LogMessage("Not enough buffer memory");
+    return DEVICE_ERR; // TODO Custom error message
+  }
+
+  buffers_ = static_cast< struct buffers* >( calloc(reqbuf_.count, sizeof(*buffers_)) );
+  assert(buffers_ != NULL);
+
+  num_buffers_ = reqbuf_.count;
+
+  // Create the buffer memory maps
+  struct v4l2_buffer buffer;
+  for (unsigned int i = 0; i < reqbuf_.count; i++) {
+    memset(&buffer, 0, sizeof(buffer));
+    buffer.type = reqbuf_.type;
+    buffer.memory = V4L2_MEMORY_MMAP;
+    buffer.index = i;
+
+    // Note: VIDIOC_QUERYBUF, not VIDIOC_QBUF, is used here!
+    if (-1 == xioctl(fd_, VIDIOC_QUERYBUF, &buffer)) {
+      LogMessage("VIDIOC_QUERYBUF failed");
+      return DEVICE_ERR; // TODO Custom error message
+    }
+
+    buffers_[i].length = buffer.length;
+    buffers_[i].start = mmap(
+      NULL,
+      buffer.length,
+      PROT_READ | PROT_WRITE,
+      MAP_SHARED,
+      fd_,
+      buffer.m.offset
+    );
+
+    if (MAP_FAILED == buffers_[i].start) {
+      LogMessage("Memory mapping failed");
+      return DEVICE_ERR; // TODO Custom error message
+    }
+  }
+
+  return DEVICE_OK;
 }
 
 /**

@@ -80,15 +80,22 @@ private:
   void FindVideoDeviceFiles(std::vector<std::string> &devices);
   void GenerateReadOnlyProperties();
   void GetVideoDeviceFormatDescription();
+  int InitMMAP();
   int OpenVideoDevice();
   int SetVideoDeviceFormat(unsigned int width, unsigned int height);
   static int xioctl(int fd, int request, void *arg);
 
+  struct buffers {
+    void *start;
+    size_t length;
+  } *buffers_;                              // Pointer to the image buffers
   std::string current_device_;              // The current device managed by this device adapter
   std::vector< std::string > devices_;      // A list of devices found on the system
   int fd_;                                  // File descriptor for the video device
   struct v4l2_format fmt_;                  // The current capture format
   std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
+  int num_buffers_;                         // The number of allocated image buffers
+  struct v4l2_requestbuffers reqbuf_;       // Set of buffers requested from the device
 
   // MM API
   bool initialized_;
