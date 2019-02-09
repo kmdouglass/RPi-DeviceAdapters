@@ -89,13 +89,14 @@ MODULE_API void DeleteDevice(MM::Device*pDevice)
  *
  */
 RPiV4L2::RPiV4L2() :
+  buffer_ {0},
   buffers_ (nullptr),
   devices_ {},
   fd_ (-1),
   fmt_ {0},
   fmtdescs_ {},
   initialized_ (0),
-  image (nullptr),
+  image (nullptr), // TODO Remove me after refactoring
   num_buffers_ (0),
   reqbuf_ {0}
   {
@@ -373,7 +374,7 @@ int RPiV4L2::OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Implementation
+// MM Camera API
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -409,7 +410,7 @@ int RPiV4L2::SnapImage()
       return nRet;
 
     // Dequeue buffer from the device
-    nRet = ReadFrame();
+    nRet = DequeueBuffer();
     if ( nRet == DEVICE_ERR )
       return nRet;
   }
@@ -423,10 +424,17 @@ int RPiV4L2::SnapImage()
 }
 
 
-// waits for camera readout
+/**
+ * Returns a pointer to the most recently dequeued buffer.
+ */
 const unsigned char* RPiV4L2::GetImageBuffer()
 {
-  return image;
+  if ( initialized_ ) {
+    return static_cast <unsigned char*> ( buffers_[buffer_.index].start );
+  }
+  else {
+    return nullptr;
+  }
 }
 
 
@@ -518,6 +526,43 @@ int RPiV4L2::ClearROI()
 {
   // V4L2 should automatically handle adjust heights/widths that are too large.
   return SetVideoDeviceFormat(MAX_WIDTH, MAX_HEIGHT); // TODO Change this so that only the size is changed
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementation
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Dequeues a buffer from the device (if available)
+ */
+int RPiV4L2::DequeueBuffer() {
+  memset(&buffer_, 0, sizeof(buffer_));
+  buffer_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buffer_.memory = V4L2_MEMORY_MMAP;
+
+  // Dequeue a buffer
+  if (-1 == xioctl(fd_, VIDIOC_DQBUF, &buffer_)) {
+    switch(errno) {
+    case EAGAIN:
+      // No buffer in the outgoing queue
+      return MSG_NO_NEW_IMAGE_IN_BUFFER;
+    case EIO:
+      // fall through
+    default:
+      LogMessage("ioctl error: VIDIOC_DQBUF");
+      return DEVICE_ERR;
+    }
+  }
+
+  assert(buffer_.index < num_buffers_);
+
+  // Enqueue the buffer again
+  if (-1 == xioctl(fd_, VIDIOC_QBUF, &buffer_)) {
+    LogMessage("ioctl error: VIDIOC_QBUF");
+    return DEVICE_ERR;
+  }
+
+  return MSG_NEW_IMAGE_IN_BUFFER;
 }
 
 
@@ -686,43 +731,6 @@ int RPiV4L2::PollDevice() {
     }
 
   return DEVICE_OK; // TODO Possibly make this a custom code
-}
-
-
-/**
- * Dequeues a buffer from the device (if available)
- */
-int RPiV4L2::ReadFrame() {
-  struct v4l2_buffer buffer;
-  memset(&buffer, 0, sizeof(buffer));
-  buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  buffer.memory = V4L2_MEMORY_MMAP;
-
-  // Dequeue a buffer
-  if (-1 == xioctl(fd_, VIDIOC_DQBUF, &buffer)) {
-    switch(errno) {
-    case EAGAIN:
-      // No buffer in the outgoing queue
-      return MSG_NO_NEW_IMAGE_IN_BUFFER;
-    case EIO:
-      // fall through
-    default:
-      LogMessage("ioctl error: VIDIOC_DQBUF");
-      return DEVICE_ERR;
-    }
-  }
-
-  assert(buffer.index < num_buffers_);
-
-  // TODO Make the buffer accessible!
-
-  // Enqueue the buffer again
-  if (-1 == xioctl(fd_, VIDIOC_QBUF, &buffer)) {
-    LogMessage("ioctl error: VIDIOC_QBUF");
-    return DEVICE_ERR;
-  }
-
-  return MSG_NEW_IMAGE_IN_BUFFER;
 }
 
 

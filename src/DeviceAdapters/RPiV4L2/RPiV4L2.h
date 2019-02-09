@@ -77,18 +77,19 @@ public:
   bool VideoInit(State *state);
 
 private:
+  int DequeueBuffer();
   void FindVideoDeviceFiles(std::vector<std::string> &devices);
   void GenerateReadOnlyProperties();
   void GetVideoDeviceFormatDescription();
   int InitMMAP();
   int OpenVideoDevice();
   int PollDevice();
-  int ReadFrame();
   int SetVideoDeviceFormat(unsigned int width, unsigned int height);
   int StartCapturing();
   int StopCapturing();
   static int xioctl(int fd, int request, void *arg);
 
+  struct v4l2_buffer buffer_;               // The most recently dequeued buffer from the device
   struct buffers {
     void *start;
     size_t length;
