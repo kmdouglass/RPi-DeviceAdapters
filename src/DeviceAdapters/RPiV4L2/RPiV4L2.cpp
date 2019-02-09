@@ -396,7 +396,9 @@ int RPiV4L2::IsExposureSequenceable(bool& isSequenceable) const
 }
 
 
-// blocks until exposure is finished
+/**
+ * Snaps a single image, leaving all buffers dequeued.
+ */
 int RPiV4L2::SnapImage()
 {
   int nRet = StartCapturing();
@@ -438,22 +440,21 @@ const unsigned char* RPiV4L2::GetImageBuffer()
 }
 
 
-// changes only if binning, pixel type, ... properties are set
 long RPiV4L2::GetImageBufferSize() const
 {
-  return state->W*state->H;
+  return buffer_.length;
 }
 
 
 unsigned RPiV4L2::GetImageWidth() const 
 {
-  return state->W;
+  return fmt_.fmt.pix.width;
 }
 
 
 unsigned RPiV4L2::GetImageHeight() const 
 {
-  return state->H;
+  return fmt_.fmt.pix.height;
 }
 
 
@@ -621,27 +622,25 @@ int RPiV4L2::InitMMAP() {
   num_buffers_ = reqbuf_.count;
 
   // Create the buffer memory maps
-  struct v4l2_buffer buffer;
   for (unsigned int i = 0; i < reqbuf_.count; i++) {
-    memset(&buffer, 0, sizeof(buffer));
-    buffer.type = reqbuf_.type;
-    buffer.memory = V4L2_MEMORY_MMAP;
-    buffer.index = i;
+    memset(&buffer_, 0, sizeof(buffer_));
+    buffer_.type = reqbuf_.type;
+    buffer_.memory = V4L2_MEMORY_MMAP;
+    buffer_.index = i;
 
-    // Note: VIDIOC_QUERYBUF, not VIDIOC_QBUF, is used here!
-    if (-1 == xioctl(fd_, VIDIOC_QUERYBUF, &buffer)) {
+    if (-1 == xioctl(fd_, VIDIOC_QUERYBUF, &buffer_)) {
       LogMessage("VIDIOC_QUERYBUF failed");
       return DEVICE_ERR; // TODO Custom error message
     }
 
-    buffers_[i].length = buffer.length;
+    buffers_[i].length = buffer_.length;
     buffers_[i].start = mmap(
       NULL,
-      buffer.length,
+      buffer_.length,
       PROT_READ | PROT_WRITE,
       MAP_SHARED,
       fd_,
-      buffer.m.offset
+      buffer_.m.offset
     );
 
     if (MAP_FAILED == buffers_[i].start) {

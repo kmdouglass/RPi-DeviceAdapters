@@ -89,7 +89,7 @@ private:
   int StopCapturing();
   static int xioctl(int fd, int request, void *arg);
 
-  struct v4l2_buffer buffer_;               // The most recently dequeued buffer from the device
+  struct v4l2_buffer buffer_;               // The most recently accessed buffer from the device
   struct buffers {
     void *start;
     size_t length;
