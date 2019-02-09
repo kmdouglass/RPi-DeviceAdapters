@@ -184,6 +184,10 @@ int RPiV4L2::Initialize()
   if ( nRet != DEVICE_OK )
     return nRet;
 
+  nRet = InitMMAP();
+  if ( nRet != DEVICE_OK )
+    return nRet;
+
   initialized_ = true;
 
   return DEVICE_OK;
@@ -372,12 +376,14 @@ int RPiV4L2::OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct)
 // Implementation
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 /**
  * TODO: implement
  */
 bool RPiV4L2::Busy() {
   return false;
 }
+
 
 /**
  * TODO: implement if possible
@@ -388,20 +394,34 @@ int RPiV4L2::IsExposureSequenceable(bool& isSequenceable) const
    return DEVICE_OK;
 }
 
+
 // blocks until exposure is finished
 int RPiV4L2::SnapImage()
 {
-  unsigned char*data=VideoTakeBuffer(state);
-  int i,j;
-  for(j=0;j<state->H;j++){
-    int wj=state->W*j;
-    for(i=0;i<state->W;i++){
-      image[i+wj]=data[2*i+2*wj];
-    }
+  int nRet = StartCapturing();
+  if ( nRet != DEVICE_OK )
+    return nRet;
+
+  do {
+    // Check whether the device is ready for reading
+    nRet = PollDevice();
+    if ( nRet != DEVICE_OK )
+      return nRet;
+
+    // Dequeue buffer from the device
+    nRet = ReadFrame();
+    if ( nRet == DEVICE_ERR )
+      return nRet;
   }
-  VideoReturnBuffer(state);
+  while ( nRet == MSG_NO_NEW_IMAGE_IN_BUFFER );
+
+  nRet = StopCapturing();
+  if ( nRet != DEVICE_OK )
+    return nRet;
+
   return DEVICE_OK;
 }
+
 
 // waits for camera readout
 const unsigned char* RPiV4L2::GetImageBuffer()
@@ -409,21 +429,25 @@ const unsigned char* RPiV4L2::GetImageBuffer()
   return image;
 }
 
+
 // changes only if binning, pixel type, ... properties are set
 long RPiV4L2::GetImageBufferSize() const
 {
   return state->W*state->H;
 }
 
+
 unsigned RPiV4L2::GetImageWidth() const 
 {
   return state->W;
 }
 
+
 unsigned RPiV4L2::GetImageHeight() const 
 {
   return state->H;
 }
+
 
 unsigned RPiV4L2::GetImageBytesPerPixel() const
 {
@@ -431,11 +455,13 @@ unsigned RPiV4L2::GetImageBytesPerPixel() const
   return 1; //get_image_bytes_per_pixel();
 }
 
+
 unsigned RPiV4L2::GetBitDepth() const 
 {
   // FIXME
   return 8;// get_bit_depth();
 }
+
 
 int RPiV4L2::SetROI(unsigned x,unsigned y,unsigned xSize,unsigned ySize)
 {
@@ -448,12 +474,14 @@ int RPiV4L2::SetROI(unsigned x,unsigned y,unsigned xSize,unsigned ySize)
   return DEVICE_OK;
 }
 
+
 int RPiV4L2::GetBinning() const 
 {
   // FIXME
   return 1;// get_binning();
 }
-  
+
+
 int RPiV4L2::SetBinning(int binSize)
 {
   // FIXME  set_binning(binSize);
@@ -461,11 +489,13 @@ int RPiV4L2::SetBinning(int binSize)
   return DEVICE_OK;
 }
 
+
 double RPiV4L2::GetExposure() const 
 {
   // FIXME
   return 1.0; //get_exposure();
 }
+
 
 void RPiV4L2::SetExposure(double exp)
 {
@@ -473,6 +503,7 @@ void RPiV4L2::SetExposure(double exp)
   // set_exposure(exp);
   SetProperty(MM::g_Keyword_Exposure, CDeviceUtils::ConvertToString(exp));
 }
+
 
 int RPiV4L2::GetROI(unsigned &x, unsigned &y, unsigned&xSize, unsigned &ySize)
 {
@@ -482,11 +513,13 @@ int RPiV4L2::GetROI(unsigned &x, unsigned &y, unsigned&xSize, unsigned &ySize)
   return DEVICE_OK;
 }
 
+
 int RPiV4L2::ClearROI()
 {
   // V4L2 should automatically handle adjust heights/widths that are too large.
   return SetVideoDeviceFormat(MAX_WIDTH, MAX_HEIGHT); // TODO Change this so that only the size is changed
 }
+
 
 /**
  * Find all the video device files present on the system.
@@ -517,6 +550,7 @@ void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
     }
   }
 }
+
 
 /**
  * Initialize the memory map to the video buffers.
@@ -574,6 +608,7 @@ int RPiV4L2::InitMMAP() {
   return DEVICE_OK;
 }
 
+
 /**
  * Opens the video device file for ioctl.
  */
@@ -587,6 +622,7 @@ int RPiV4L2::OpenVideoDevice() {
 
   return DEVICE_OK;
 }
+
 
 /**
  * Query the device for its possible format descriptions.
@@ -602,10 +638,97 @@ void RPiV4L2::GetVideoDeviceFormatDescription() {
   }
 }
 
+
+/**
+ * Poll the device file to determine whether it's ready to read from.
+ */
+int RPiV4L2::PollDevice() {
+
+    fd_set fds;
+    struct timeval tv;
+    int r;
+    for (;;) {
+      // Clear the set of file descriptors to monitor, then add the fd for our device
+      FD_ZERO(&fds);
+      FD_SET(fd_, &fds);
+
+      // Set the timeout
+      tv.tv_sec = 2;
+      tv.tv_usec = 0;
+
+      /**
+       * Arguments are
+       * - number of file descriptors
+       * - set of read fds
+       * - set of write fds
+       * - set of except fds
+       * - timeval struct
+       *
+       * According to the man page for select, "nfds should be set to the highest-numbered file
+       * descriptor in any of the three sets, plus 1."
+       */
+      r = select(fd_ + 1, &fds, NULL, NULL, &tv);
+
+      if (-1 == r) {
+        if (EINTR == errno)
+          continue;
+
+	LogMessage("select: general error in PollDevice");
+	return DEVICE_ERR; // TODO Custom error code
+      }
+
+      if (0 == r) {
+        LogMessage("select: timeout");
+        return DEVICE_ERR; // TODO Custom error code
+      }
+
+      break;
+    }
+
+  return DEVICE_OK; // TODO Possibly make this a custom code
+}
+
+
+/**
+ * Dequeues a buffer from the device (if available)
+ */
+int RPiV4L2::ReadFrame() {
+  struct v4l2_buffer buffer;
+  memset(&buffer, 0, sizeof(buffer));
+  buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buffer.memory = V4L2_MEMORY_MMAP;
+
+  // Dequeue a buffer
+  if (-1 == xioctl(fd_, VIDIOC_DQBUF, &buffer)) {
+    switch(errno) {
+    case EAGAIN:
+      // No buffer in the outgoing queue
+      return MSG_NO_NEW_IMAGE_IN_BUFFER;
+    case EIO:
+      // fall through
+    default:
+      LogMessage("ioctl error: VIDIOC_DQBUF");
+      return DEVICE_ERR;
+    }
+  }
+
+  assert(buffer.index < num_buffers_);
+
+  // TODO Make the buffer accessible!
+
+  // Enqueue the buffer again
+  if (-1 == xioctl(fd_, VIDIOC_QBUF, &buffer)) {
+    LogMessage("ioctl error: VIDIOC_QBUF");
+    return DEVICE_ERR;
+  }
+
+  return MSG_NEW_IMAGE_IN_BUFFER;
+}
+
+
 /**
  * Set the device's format, including its width, height, and pixel format.
  *
- * TODO FINISH ME
  */
 int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
   struct v4l2_fmtdesc fmtdesc = fmtdescs_.back(); // TODO Make this settable
@@ -622,10 +745,56 @@ int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
     return DEVICE_ERR;
   }
 
-  // TODO Setup the mmap here or in a new method
+  return DEVICE_OK;
+}
+
+
+/**
+ * Enqueue the image buffers and start capturing.
+ */
+int RPiV4L2::StartCapturing() {
+  enum v4l2_buf_type type;
+  struct v4l2_buffer buffer;
+  for (unsigned int i = 0; i < num_buffers_; i++) {
+    /* Note that we set bytesused = 0, which will set it to the buffer length
+     * See
+     * - https://www.linuxtv.org/downloads/v4l-dvb-apis-new/uapi/v4l/vidioc-qbuf.html?highlight=vidioc_qbuf#description
+     * - https://www.linuxtv.org/downloads/v4l-dvb-apis-new/uapi/v4l/buffer.html#c.v4l2_buffer
+     */
+    memset(&buffer, 0, sizeof(buffer));
+    buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buffer.memory = V4L2_MEMORY_MMAP;
+    buffer.index = i;
+
+    // Enqueue the buffer with VIDIOC_QBUF
+    if (-1 == xioctl(fd_, VIDIOC_QBUF, &buffer)) {
+      LogMessage("ioctl error: VIDIOC_QBUF");
+      return DEVICE_ERR; // TODO Custom error code
+    }
+  }
+
+  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  if (-1 == xioctl(fd_, VIDIOC_STREAMON, &type)) {
+    LogMessage("ioctl error: VIDIOC_STREAMON");
+    return DEVICE_ERR; // TODO Custom error code
+  }
 
   return DEVICE_OK;
 }
+
+
+int RPiV4L2::StopCapturing() {
+  enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  if (-1 == xioctl(fd_, VIDIOC_STREAMOFF, &type)) {
+    LogMessage("ioctl error: VIDIOC_STREAMOFF");
+    return DEVICE_ERR;
+  }
+
+  return DEVICE_OK;
+}
+
 
 /**
  * Wrapper around ioctl system call for error handling.

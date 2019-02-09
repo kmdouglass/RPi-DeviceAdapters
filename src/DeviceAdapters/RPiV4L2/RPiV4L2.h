@@ -82,7 +82,11 @@ private:
   void GetVideoDeviceFormatDescription();
   int InitMMAP();
   int OpenVideoDevice();
+  int PollDevice();
+  int ReadFrame();
   int SetVideoDeviceFormat(unsigned int width, unsigned int height);
+  int StartCapturing();
+  int StopCapturing();
   static int xioctl(int fd, int request, void *arg);
 
   struct buffers {
@@ -94,7 +98,7 @@ private:
   int fd_;                                  // File descriptor for the video device
   struct v4l2_format fmt_;                  // The current capture format
   std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
-  int num_buffers_;                         // The number of allocated image buffers
+  unsigned int num_buffers_;                // The number of allocated image buffers
   struct v4l2_requestbuffers reqbuf_;       // Set of buffers requested from the device
 
   // MM API
@@ -103,6 +107,10 @@ private:
   // Error codes
   const int ERR_NO_VIDEO_DEVICE_FILES = 101;   // No /dev/video* files exist
   const int ERR_DEVICE_CHANGE_FORBIDDEN = 102; // Cannot change /dev file after initialization
+
+  // Messages
+  const int MSG_NEW_IMAGE_IN_BUFFER = 501;
+  const int MSG_NO_NEW_IMAGE_IN_BUFFER = 502;
 
   // TODO: Remove after refactor
   State state[1];
