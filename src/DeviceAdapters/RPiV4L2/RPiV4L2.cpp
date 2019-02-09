@@ -460,8 +460,7 @@ unsigned RPiV4L2::GetImageHeight() const
 
 unsigned RPiV4L2::GetImageBytesPerPixel() const
 {
-  // FIXME
-  return 1; //get_image_bytes_per_pixel();
+  return fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width;
 }
 
 
