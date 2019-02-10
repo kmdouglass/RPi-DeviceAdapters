@@ -45,6 +45,7 @@
 #include <pthread.h>
 
 #include "RPiV4L2.h"
+#include "formats.h"
 #include "refactor.h" // TODO remove after refactoring
 
 using namespace std;
@@ -426,6 +427,24 @@ int RPiV4L2::SnapImage()
 }
 
 
+int RPiV4L2::GetBinning() const
+{
+  // FIXME
+  return 1;// get_binning();
+}
+
+
+/**
+ * This determines the range of intensity values of each component.
+ */
+unsigned RPiV4L2::GetBitDepth() const
+{
+  // https://linuxtv.org/downloads/v4l-dvb-apis/uapi/v4l/colorspaces-defs.html#c.v4l2_quantization
+  // This appears to be always 8 at most.
+  return BIT_DEPTH;
+}
+
+
 /**
  * Returns a pointer to the most recently dequeued buffer.
  */
@@ -457,17 +476,43 @@ unsigned RPiV4L2::GetImageHeight() const
   return fmt_.fmt.pix.height;
 }
 
-
+/**
+ * This value is not generally compatible with the Java layer.
+ *
+ * TODO ADD GetNumberOfComponents!
+ */
 unsigned RPiV4L2::GetImageBytesPerPixel() const
 {
   return fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width;
 }
 
 
-unsigned RPiV4L2::GetBitDepth() const 
+/**
+ * Returns the number of color components per pixel.
+ *
+ * This method is Micro-Manager-specific and requires prior knowledge about the current pixel
+ * format. If the number of components cannot be determined, return 0.
+ */
+unsigned RPiV4L2::GetNumberOfComponents() const
 {
-  // FIXME
-  return 8;// get_bit_depth();
+  int num_components;
+  
+  // TODO Make fmtdescs settable
+  __u32 pixelformat = fmtdescs_.back().pixelformat;
+  char fourcc[5];
+  fourcc[0] = (pixelformat >> 0) & 0xFF;
+  fourcc[1] = (pixelformat >> 8) & 0xFF;
+  fourcc[2] = (pixelformat >> 16) & 0xFF;
+  fourcc[3] = (pixelformat >> 24) & 0xFF;
+  fourcc[4] = '\0';
+  try {
+    num_components = FourCC::COMPONENTS.at(fourcc);
+  }
+  catch (const std::out_of_range& oor) {
+    num_components = UNKNOWN_NUMBER_OF_COMPONENTS;
+  }
+
+  return num_components;
 }
 
 
@@ -480,13 +525,6 @@ int RPiV4L2::SetROI(unsigned x,unsigned y,unsigned xSize,unsigned ySize)
   // FIXME
   // set_roi(x,y,xSize,ySize);
   return DEVICE_OK;
-}
-
-
-int RPiV4L2::GetBinning() const 
-{
-  // FIXME
-  return 1;// get_binning();
 }
 
 
@@ -537,7 +575,7 @@ int RPiV4L2::ClearROI()
  */
 int RPiV4L2::DequeueBuffer() {
   memset(&buffer_, 0, sizeof(buffer_));
-  buffer_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buffer_.type = BUF_TYPE;
   buffer_.memory = V4L2_MEMORY_MMAP;
 
   // Dequeue a buffer
@@ -567,7 +605,7 @@ int RPiV4L2::DequeueBuffer() {
 
 
 /**
- * Find all the video device files present on the system.
+ * Finds all the video device files present on the system.
  *
  */
 void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
@@ -598,10 +636,10 @@ void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
 
 
 /**
- * Initialize the memory map to the video buffers.
+ * Initializes the memory map to the video buffers.
  */
 int RPiV4L2::InitMMAP() {
-  reqbuf_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  reqbuf_.type = BUF_TYPE;
   reqbuf_.memory = V4L2_MEMORY_MMAP;
   reqbuf_.count = 5; // TODO Make this settable
 
@@ -672,7 +710,7 @@ int RPiV4L2::OpenVideoDevice() {
  */
 void RPiV4L2::GetVideoDeviceFormatDescription() {
   struct v4l2_fmtdesc fmtdesc = {0};
-  fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  fmtdesc.type = BUF_TYPE;
 
   // Get the format with the largest index and use it
   while(0 == xioctl(fd_, VIDIOC_ENUM_FMT, &fmtdesc)) {
@@ -739,7 +777,7 @@ int RPiV4L2::PollDevice() {
 int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
   struct v4l2_fmtdesc fmtdesc = fmtdescs_.back(); // TODO Make this settable
   fmt_ = {0};
-  fmt_.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  fmt_.type = BUF_TYPE;
 
   fmt_.fmt.pix.width = width;
   fmt_.fmt.pix.height = height;
@@ -768,7 +806,7 @@ int RPiV4L2::StartCapturing() {
      * - https://www.linuxtv.org/downloads/v4l-dvb-apis-new/uapi/v4l/buffer.html#c.v4l2_buffer
      */
     memset(&buffer, 0, sizeof(buffer));
-    buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buffer.type = BUF_TYPE;
     buffer.memory = V4L2_MEMORY_MMAP;
     buffer.index = i;
 
@@ -779,7 +817,7 @@ int RPiV4L2::StartCapturing() {
     }
   }
 
-  type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  type = BUF_TYPE;
 
   if (-1 == xioctl(fd_, VIDIOC_STREAMON, &type)) {
     LogMessage("ioctl error: VIDIOC_STREAMON");
@@ -791,7 +829,7 @@ int RPiV4L2::StartCapturing() {
 
 
 int RPiV4L2::StopCapturing() {
-  enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  enum v4l2_buf_type type = BUF_TYPE;
 
   if (-1 == xioctl(fd_, VIDIOC_STREAMOFF, &type)) {
     LogMessage("ioctl error: VIDIOC_STREAMOFF");

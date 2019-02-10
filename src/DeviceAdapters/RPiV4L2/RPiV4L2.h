@@ -4,19 +4,21 @@
  *
  * Micro-Manager device adapter for a Video 4 Linux version 2 device.
  *
+ * Notable properties of this device adapter include:
+ *
+ * - Only single plane video capture formats are used (V4L2_BUF_TYPE_VIDEO_CAPTURE)
+ *
+ * - GetNumberOfComponents returns the number of color channels per pixel. This can be confusing
+ *   for some non-packed, single plane formats such as YUYV where each pixel contains only two
+ *   color components.
+ *
+ * - In general, this device adapter is not compatible with the Micro-Manager Java wrapper. The
+ *   reason for this is that the number of supported pixel formats are most limited in the Java
+ *   layer, and the device adapter has no knowledge of what layer it is being called from.
+ *
  * This device adapter is based on the original V4L2 device adapter for Micro-Manager by Martin
  * Kielhorn.
  */
-
-// LICENSE:       This file is distributed under the "LGPL" license.
-//
-//                This file is distributed in the hope that it will be useful,
-//                but WITHOUT ANY WARRANTY; without even the implied warranty
-//                of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-//
-//                IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-//                CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-//                INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 
 #ifndef _RPiV4L2_H_
 #define _RPiV4L2_H_
@@ -28,6 +30,7 @@
 #include "DeviceBase.h"
 
 #include "refactor.h" // TODO remove after refactoring
+
 
 class RPiV4L2 : public CCameraBase<RPiV4L2>
 {
@@ -50,6 +53,7 @@ public:
   unsigned GetImageHeight() const;
   unsigned GetImageWidth() const;
   void GetName(char* name) const;
+  unsigned GetNumberOfComponents() const;
   int GetROI(unsigned &x, unsigned &y,unsigned &xSize, unsigned &ySize);
   int SetBinning(int binSize);
   void SetExposure(double exp);
@@ -69,9 +73,12 @@ public:
   int OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct);
 
   // Constants
+  static const unsigned int BIT_DEPTH = 8;
+  static const v4l2_buf_type BUF_TYPE = V4L2_BUF_TYPE_VIDEO_CAPTURE; // Single plane formats only
   static const __u32 FIELD = V4L2_FIELD_NONE;   // TODO Make this settable
   static const unsigned int MAX_HEIGHT = 32768;
   static const unsigned int MAX_WIDTH = 32768;
+  static const unsigned int UNKNOWN_NUMBER_OF_COMPONENTS = 0;
 
   // TODO: Remove after refactor
   bool VideoInit(State *state);
