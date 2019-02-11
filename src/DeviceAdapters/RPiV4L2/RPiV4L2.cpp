@@ -99,7 +99,8 @@ RPiV4L2::RPiV4L2() :
   initialized_ (0),
   image (nullptr), // TODO Remove me after refactoring
   num_buffers_ (0),
-  reqbuf_ {0}
+  reqbuf_ {0},
+  stopOnOverflow_ (false) // TODO Make this settable
   {
   SetErrorText(ERR_NO_VIDEO_DEVICE_FILES, "No video device files present on the system.");
   SetErrorText(ERR_DEVICE_CHANGE_FORBIDDEN, "Cannot change video device after initialization.");
@@ -636,6 +637,21 @@ void RPiV4L2::FindVideoDeviceFiles(std::vector<std::string> &devices) {
 
 
 /**
+ * Query the device for its possible format descriptions.
+ */
+void RPiV4L2::GetVideoDeviceFormatDescription() {
+  struct v4l2_fmtdesc fmtdesc = {0};
+  fmtdesc.type = BUF_TYPE;
+
+  // Get the format with the largest index and use it
+  while(0 == xioctl(fd_, VIDIOC_ENUM_FMT, &fmtdesc)) {
+    fmtdescs_.push_back(fmtdesc);
+    fmtdesc.index++;
+  }
+}
+
+
+/**
  * Initializes the memory map to the video buffers.
  */
 int RPiV4L2::InitMMAP() {
@@ -689,6 +705,44 @@ int RPiV4L2::InitMMAP() {
   return DEVICE_OK;
 }
 
+/**
+ * Inserts Image and MetaData into MMCore circular buffer
+ */
+int RPiV4L2::InsertImage()
+{
+  Metadata md;
+  md.put("Temporary placeholder", "TODO"); //TODO Add metadata
+  int ret = GetCoreCallback()->InsertImage(
+    this,
+    static_cast<unsigned char*>(buffers_[buffer_.index].start),
+    static_cast<unsigned>(fmt_.fmt.pix.width),
+    static_cast<unsigned>(fmt_.fmt.pix.height),
+    static_cast<unsigned>(fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width),
+    this->GetNumberOfComponents(),
+    md.Serialize().c_str(),
+    false
+  );
+
+  if ( !stopOnOverflow_ && ret == DEVICE_BUFFER_OVERFLOW )
+    {
+      this->GetCoreCallback()->ClearImageBuffer(this);
+      ret = GetCoreCallback()->InsertImage(
+        this,
+        static_cast<unsigned char*>(buffers_[buffer_.index].start),
+        static_cast<unsigned>(fmt_.fmt.pix.width),
+        static_cast<unsigned>(fmt_.fmt.pix.height),
+        static_cast<unsigned>(fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width),
+        this->GetNumberOfComponents(),
+        md.Serialize().c_str(),
+        false
+      );
+      return DEVICE_OK;
+    }
+
+  return ret;
+
+}
+
 
 /**
  * Opens the video device file for ioctl.
@@ -702,21 +756,6 @@ int RPiV4L2::OpenVideoDevice() {
   }
 
   return DEVICE_OK;
-}
-
-
-/**
- * Query the device for its possible format descriptions.
- */
-void RPiV4L2::GetVideoDeviceFormatDescription() {
-  struct v4l2_fmtdesc fmtdesc = {0};
-  fmtdesc.type = BUF_TYPE;
-
-  // Get the format with the largest index and use it
-  while(0 == xioctl(fd_, VIDIOC_ENUM_FMT, &fmtdesc)) {
-    fmtdescs_.push_back(fmtdesc);
-    fmtdesc.index++;
-  }
 }
 
 

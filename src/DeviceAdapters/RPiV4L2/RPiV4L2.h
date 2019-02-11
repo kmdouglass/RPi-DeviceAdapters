@@ -89,6 +89,7 @@ private:
   void GenerateReadOnlyProperties();
   void GetVideoDeviceFormatDescription();
   int InitMMAP();
+  int InsertImage();
   int OpenVideoDevice();
   int PollDevice();
   int SetVideoDeviceFormat(unsigned int width, unsigned int height);
@@ -108,6 +109,7 @@ private:
   std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
   unsigned int num_buffers_;                // The number of allocated image buffers
   struct v4l2_requestbuffers reqbuf_;       // Set of buffers requested from the device
+  bool stopOnOverflow_;                     // Stop acquisition when the circular buffer if full?
 
   // MM API
   bool initialized_;
