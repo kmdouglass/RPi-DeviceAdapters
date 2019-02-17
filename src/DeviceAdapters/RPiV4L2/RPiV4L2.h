@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "DeviceBase.h"
+#include "ImgBuffer.h"
 
 #include "refactor.h" // TODO remove after refactoring
 
@@ -97,16 +98,22 @@ private:
   int StopCapturing();
   static int xioctl(int fd, int request, void *arg);
 
-  struct v4l2_buffer buffer_;               // The most recently accessed buffer from the device
+  // V4L2 Buffers
+  // These buffers are used to pass data between the device and device adapter. They are not
+  // exposed to the public device adapter API. The public API accesses the ImgBuffer img_ instead.
+  struct v4l2_buffer buffer_;               // The most recently accessed V4L2 buffer
   struct buffers {
     void *start;
     size_t length;
-  } *buffers_;                              // Pointer to the image buffers
+  } *buffers_;                              // Pointer to the V4L2 image buffers
+
   std::string current_device_;              // The current device managed by this device adapter
   std::vector< std::string > devices_;      // A list of devices found on the system
   int fd_;                                  // File descriptor for the video device
   struct v4l2_format fmt_;                  // The current capture format
   std::vector< v4l2_fmtdesc > fmtdescs_;    // Set of format descriptions supported by the device
+  ImgBuffer img_;                           // The image buffer used by the MM API
+  MMThreadLock imgLock_;                    // Lock for the image buffer
   unsigned int num_buffers_;                // The number of allocated image buffers
   struct v4l2_requestbuffers reqbuf_;       // Set of buffers requested from the device
   bool stopOnOverflow_;                     // Stop acquisition when the circular buffer if full?

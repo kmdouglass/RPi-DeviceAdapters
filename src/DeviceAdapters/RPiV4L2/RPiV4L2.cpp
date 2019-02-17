@@ -97,7 +97,7 @@ RPiV4L2::RPiV4L2() :
   fmt_ {0},
   fmtdescs_ {},
   initialized_ (0),
-  image (nullptr), // TODO Remove me after refactoring
+  image (nullptr), // TODO Remove me after refactoring,
   num_buffers_ (0),
   reqbuf_ {0},
   stopOnOverflow_ (false) // TODO Make this settable
@@ -200,12 +200,12 @@ int RPiV4L2::Initialize()
 int RPiV4L2::Shutdown()
 {
   if(initialized_)
-    // Free the memory-mapped image buffers
+    // Free the memory-mapped V4L2 image buffers
     for (unsigned int i = 0; i < reqbuf_.count; i++)
       munmap(buffers_[i].start, buffers_[i].length);
-
     free(buffers_);
     buffers_ = nullptr;
+
     close(fd_);
 
   initialized_ = false;
@@ -351,7 +351,7 @@ int RPiV4L2::OnHeight(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   if ( eAct == MM::BeforeGet )
   {
-    pProp->Set( static_cast< long >(fmt_.fmt.pix.height) );
+    pProp->Set( static_cast< long >(img_.Height()) );
   }
 
   return DEVICE_OK;
@@ -369,7 +369,7 @@ int RPiV4L2::OnWidth(MM::PropertyBase* pProp, MM::ActionType eAct)
 {
   if ( eAct == MM::BeforeGet )
   {
-    pProp->Set( static_cast< long >(fmt_.fmt.pix.width) );
+    pProp->Set( static_cast< long >(img_.Width()) );
   }
 
   return DEVICE_OK;
@@ -400,9 +400,13 @@ int RPiV4L2::IsExposureSequenceable(bool& isSequenceable) const
 
 /**
  * Snaps a single image, leaving all buffers dequeued.
+ *
  */
 int RPiV4L2::SnapImage()
 {
+
+  MMThreadGuard g(imgLock_);
+
   int nRet = StartCapturing();
   if ( nRet != DEVICE_OK )
     return nRet;
@@ -413,7 +417,7 @@ int RPiV4L2::SnapImage()
     if ( nRet != DEVICE_OK )
       return nRet;
 
-    // Dequeue buffer from the device
+    // Dequeue buffer from the device and place it back in the queue
     nRet = DequeueBuffer();
     if ( nRet == DEVICE_ERR )
       return nRet;
@@ -423,6 +427,9 @@ int RPiV4L2::SnapImage()
   nRet = StopCapturing();
   if ( nRet != DEVICE_OK )
     return nRet;
+
+  // Copy the data into the buffer
+  img_.SetPixels(buffers_[buffer_.index].start);
 
   return DEVICE_OK;
 }
@@ -447,12 +454,12 @@ unsigned RPiV4L2::GetBitDepth() const
 
 
 /**
- * Returns a pointer to the most recently dequeued buffer.
+ * Returns a pointer to the most recently acquired data.
  */
 const unsigned char* RPiV4L2::GetImageBuffer()
 {
   if ( initialized_ ) {
-    return static_cast <unsigned char*> ( buffers_[buffer_.index].start );
+    return img_.GetPixels();
   }
   else {
     return nullptr;
@@ -462,19 +469,19 @@ const unsigned char* RPiV4L2::GetImageBuffer()
 
 long RPiV4L2::GetImageBufferSize() const
 {
-  return buffer_.length;
+  return img_.Width() * img_.Height() * img_.Depth();
 }
 
 
 unsigned RPiV4L2::GetImageWidth() const 
 {
-  return fmt_.fmt.pix.width;
+  return img_.Width();
 }
 
 
 unsigned RPiV4L2::GetImageHeight() const 
 {
-  return fmt_.fmt.pix.height;
+  return img_.Height();
 }
 
 /**
@@ -484,7 +491,7 @@ unsigned RPiV4L2::GetImageHeight() const
  */
 unsigned RPiV4L2::GetImageBytesPerPixel() const
 {
-  return fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width;
+  return img_.Depth();
 }
 
 
@@ -712,12 +719,15 @@ int RPiV4L2::InsertImage()
 {
   Metadata md;
   md.put("Temporary placeholder", "TODO"); //TODO Add metadata
+
+  MMThreadGuard g(imgLock_);
+
   int ret = GetCoreCallback()->InsertImage(
     this,
-    static_cast<unsigned char*>(buffers_[buffer_.index].start),
-    static_cast<unsigned>(fmt_.fmt.pix.width),
-    static_cast<unsigned>(fmt_.fmt.pix.height),
-    static_cast<unsigned>(fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width),
+    img_.GetPixels(),
+    img_.Width(),
+    img_.Height(),
+    img_.Depth(),
     this->GetNumberOfComponents(),
     md.Serialize().c_str(),
     false
@@ -728,10 +738,10 @@ int RPiV4L2::InsertImage()
       this->GetCoreCallback()->ClearImageBuffer(this);
       ret = GetCoreCallback()->InsertImage(
         this,
-        static_cast<unsigned char*>(buffers_[buffer_.index].start),
-        static_cast<unsigned>(fmt_.fmt.pix.width),
-        static_cast<unsigned>(fmt_.fmt.pix.height),
-        static_cast<unsigned>(fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width),
+        img_.GetPixels(),
+        img_.Width(),
+        img_.Height(),
+        img_.Depth(),
         this->GetNumberOfComponents(),
         md.Serialize().c_str(),
         false
@@ -812,6 +822,8 @@ int RPiV4L2::PollDevice() {
 /**
  * Set the device's format, including its width, height, and pixel format.
  *
+ * TODO Clean up the ugly delete/new handling of img_ pointer. Would a factory class be work?
+ *
  */
 int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
   struct v4l2_fmtdesc fmtdesc = fmtdescs_.back(); // TODO Make this settable
@@ -828,12 +840,16 @@ int RPiV4L2::SetVideoDeviceFormat(unsigned int width, unsigned int height) {
     return DEVICE_ERR;
   }
 
+  // Set up the MM ImgBuffer
+  unsigned int bytes_per_pixel = fmt_.fmt.pix.bytesperline / fmt_.fmt.pix.width;
+  img_ = ImgBuffer(fmt_.fmt.pix.width, fmt_.fmt.pix.height, bytes_per_pixel);
+
   return DEVICE_OK;
 }
 
 
 /**
- * Enqueue the image buffers and start capturing.
+ * Enqueue the V4L2 image buffers and start capturing.
  */
 int RPiV4L2::StartCapturing() {
   enum v4l2_buf_type type;
